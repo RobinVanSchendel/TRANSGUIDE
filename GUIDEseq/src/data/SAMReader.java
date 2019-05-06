@@ -1,65 +1,106 @@
 package data;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
 
-import htsjdk.samtools.*;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 public class SAMReader {
-	public final static String str = "pCAMBIA3301_GUIDE";
-	//HERE we used P7 primers in the TDNA, so the getFirstOfPairFlag is false
-	public final static boolean getFirstOfPairFlag = false;
-	public final static boolean forwardRB = true; 
-	
 	public static void main(String[] args) {
-		File bamFile = new File("E:\\Project_GUIDESeq\\Rbplus.sorted.bam");
-		
-		final int minSupport = 5;
-		
-		
-        SamReader sr = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(bamFile);
-        //SAMRecordIterator r = sr.iterator();
-        SAMRecordIterator r = sr.query(str, 2276, 2278, false);
-        ArrayList<SAMRecord> printable = new ArrayList<SAMRecord>();
-        
-        TranslocationController tc = new TranslocationController();
-        int count = 0;
-        while(r.hasNext()) {
-        	SAMRecord srec = r.next();
-        	if(Translocation.getNMis0(srec)) {
-	        	if(srec.getContig() != null && !srec.getContig().equals(srec.getMateReferenceName())) {
-		       		//System.out.println(srec.getContig()+":"+srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
-		       		//System.out.println(srec.getReadString());
-		       		//System.out.println(srec.getCigarString());
-		       		if(!srec.getReadNegativeStrandFlag()) {
-		       			//System.out.println("forward");
-		       		}
-		       		else {
-		       			//System.out.println("reverse");
-		       		}
-		       		if(srec.getReadString().startsWith("CAAACTAGGATAAATTATCGCGCGCGGTGT")) {
-		       			if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == getFirstOfPairFlag && !srec.getReadNegativeStrandFlag() == forwardRB) {
-		       				//System.out.println(srec.getMateReferenceName()+"\t"+srec.getMateAlignmentStart()+"\t"+srec.getMateNegativeStrandFlag()+"\t"+srec.getCigarString()+"\t"+srec.getReadString()+"\t"+srec.isSecondaryAlignment()+"\t"+srec.getMappingQuality());
-		       				printable.add(srec);
-		       				//System.out.println("adding");
-		       				//if(srec.getMateAlignmentStart()==4889469) {
-		       					tc.addTranslocation(srec);
-		       				//}
-		       				count++;
-		       			}
-		       		}
-	        	}
-        	}
-        }
-        r.close();
-        tc.addMates(sr);
-        tc.printContents(minSupport);
-        try {
-			sr.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		Options optionsApache = createOptions();
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = null;
+		try {
+			cmd = parser.parse( optionsApache, args);
+		} catch (ParseException e) {
+			System.err.println(e);
+			HelpFormatter formatter = new HelpFormatter();
+			formatter.printHelp( "GUIDEseqAnalyzer", optionsApache );
+			System.exit(0);
 		}
+		MyOptions options = new MyOptions(cmd);
+		
+		System.out.println(options.printParameters());
+        TranslocationController tc = new TranslocationController(options);
+        tc.launchAnalysis();
     }
+
+	private static Options createOptions() {
+		Options o = new Options();
+		//threads
+		Option i   = Option.builder( "i" )
+				.longOpt("input")
+                .hasArg()
+                .argName("FILE")
+                .desc("the input sorted and indexed bam file that is used to map the reads" )
+                .required(true)
+                .build();
+		o.addOption(i);
+		Option r   = Option.builder( "r" )
+				.longOpt("reference")
+                .hasArg()
+                .argName("FILE")
+                .desc("the reference file that is used to map the reads" )
+                .required(true)
+                .build();
+		o.addOption(r);
+		
+		Option p = Option.builder("p")
+				.longOpt("primer")
+				.hasArg()
+				.argName("STRING")
+				.desc("The internal primer used in the GUIDEseq experiment")
+				.required()
+				.build();
+		o.addOption(p);
+		
+		Option c = Option.builder("c")
+				.longOpt("chr")
+				.hasArg()
+				.argName("STRING")
+				.desc("The plasmid name that is integrated into the genome")
+				.required()
+				.build();
+		o.addOption(c);
+		
+		Option p5   = Option.builder( "P5" )
+				.longOpt("P5")
+                .desc("Is the primer used as a P5 primer during sequencing")
+                .optionalArg(true)
+                .build();
+				o.addOption(p5);
+				
+		Option p7   = Option.builder( "P7" )
+				.longOpt("P7")
+                .desc("Is the primer used as a P7 primer during sequencing")
+                .optionalArg(true)
+                .build();
+		
+				o.addOption(p7);
+		
+		Option out   = Option.builder( "o" )
+				.longOpt("output")
+                .hasArg()
+                .argName("FILE")
+                .desc("the file that the output is written to" )
+                .required(true)
+                .build();
+		o.addOption(out);
+		
+		Option m   = Option.builder( "m" )
+				.longOpt("minsupport")
+				.argName("NUMBER")
+                .type(Number.class)
+                .hasArg()
+                .desc("the minimum number of support to be output (5 is standard)" )
+                .build();
+		o.addOption(m);
+		
+		
+		return o;
+	}
 
 }
