@@ -86,7 +86,6 @@ public class SAMReader {
                 .hasArg()
                 .argName("FILE")
                 .desc("the file that the output is written to" )
-                .required(true)
                 .build();
 		o.addOption(out);
 		
