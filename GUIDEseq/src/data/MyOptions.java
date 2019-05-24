@@ -67,7 +67,7 @@ private CommandLine cmd;
 				e.printStackTrace();
 			}
 		}
-		return 5;
+		return 1;
 	}
 	public String printParameters() {
 		if(cmd!= null) {
@@ -98,6 +98,11 @@ private CommandLine cmd;
 		return null;
 	}
 	public String getOutput() {
-		return cmd.getOptionValue('o');
+		if(cmd.hasOption('o')) {
+			return cmd.getOptionValue('o');
+		}
+		else {
+			return getBam().getAbsolutePath()+"output.txt";
+		}
 	}
 }
