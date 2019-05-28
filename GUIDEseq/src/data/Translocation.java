@@ -343,6 +343,11 @@ public class Translocation {
 				//up unto the M
 				CigarElement ce = sam.getCigar().getCigarElement(0);
 				//always correct?
+				if(ce.getOperator() != CigarOperator.M && sam.getCigar().numCigarElements() == 2) {
+					System.err.println("bug still here");
+					System.out.println(sam.getCigarString());
+					System.exit(0);
+				}
 				int pos = ce.getLength();
 				seqs.add(sam.getReadString().substring(0, pos));
 			}

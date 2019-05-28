@@ -164,7 +164,18 @@ public class TranslocationController {
         		//chr has to be filled and unequal
         		//take the reverse complement if we are looking at reads going reverse
         		if(!positiveStrand) {
+        			String cigar = srec.getCigarString();
         			srec.reverseComplement();
+        			//bug so reverse it myself
+        			Cigar tempCigar = srec.getCigar();
+        			if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
+        				Cigar rev = new Cigar();
+        				//reverse the cigar
+        				for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
+        					rev.add(tempCigar.getCigarElement(i));
+        				}
+        				srec.setCigar(rev);
+        			}
         		}
 	        	if(srec.getContig() != null && !srec.getContig().equals(srec.getMateReferenceName())) {
 	        		//read should start with the primer
