@@ -6,16 +6,19 @@ import java.util.ArrayList;
 public class OutputCommands {
 
 	public static void main(String[] args) {
-		String dir = "Z:\\Datasets - NGS, UV_TMP, MMP\\GUIDEseq_Arabidopsis\\sortedbams";
+		String dir = "E:\\NGS\\GUIDEseq\\sortedbams";
+		String refseq = "E:\\NGS\\GUIDEseq\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa";
 		ArrayList<File> files = searchSortedBam(new File(dir));
-		String lb = "-p ttaattcagtacattaaaaacg -P7 -r E:\\Project_GUIDESeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa -c pCAMBIA3301_GUIDE";
-		String rb = "-p caaactaggataaattatcg  -P7 -r E:\\Project_GUIDESeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa -c pCAMBIA3301_GUIDE";
+		String lb = "-p ttaattcagtacattaaaaacg -P7 -r "+refseq+" -c pCAMBIA3301_GUIDE";
+		String rb = "-p caaactaggataaattatcg  -P7 -r "+refseq+" -c pCAMBIA3301_GUIDE";
 		for(File f: files) {
-			if(f.getName().startsWith("LB")) {
-				System.out.println("-i \""+f.getAbsolutePath()+"\" "+lb);
-			}
-			else {
-				System.out.println("-i \""+f.getAbsolutePath()+"\" "+rb);
+			if(f.getName().contains("Total")) {
+				if(f.getName().startsWith("LB")) {
+					System.out.println("-i \""+f.getAbsolutePath()+"\" "+lb);
+				}
+				else {
+					System.out.println("-i \""+f.getAbsolutePath()+"\" "+rb);
+				}
 			}
 		}
 	}

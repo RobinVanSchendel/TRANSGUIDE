@@ -69,6 +69,18 @@ private CommandLine cmd;
 		}
 		return 1;
 	}
+	/** hard-coded the RB position
+	 * 
+	 */
+	public int getTDNARBPos() {
+		return 2347;
+	}
+	/** hard-coded the LB position
+	 * 
+	 */
+	public int getTDNALBPos() {
+		return 8626;
+	}
 	public String printParameters() {
 		if(cmd!= null) {
 			Class<?> c = this.getClass();

@@ -15,6 +15,7 @@ public class Translocation {
 	private static final String NOGENOMIC = "NOGENOMIC";
 	private static final String NOTRANSLOCATION = "NOTRANSLOCATION";
 	private static final int refSize = 500;
+	private static final int maxSizeTranslocationSequence = 151;
 	public ArrayList<SAMRecord> sams;
 	private String filler = "";
 	private String hom = "";
@@ -134,6 +135,8 @@ public class Translocation {
 		sb.append("Position").append(s);
 		sb.append("RealPosition").append(s);
 		sb.append("realPositionCounter").append(s);
+		sb.append("DistanceToLBRB").append(s);
+		sb.append("LB/RB").append(s);
 		sb.append("IGVPos").append(s);
 		sb.append("isForward").append(s);
 		sb.append("CigarString").append(s);
@@ -161,6 +164,8 @@ public class Translocation {
 		sb.append(getPosition()).append(s);
 		sb.append(getRealPosition()).append(s);
 		sb.append(realPositionCounter).append(s);
+		sb.append(getDistanceToLBRB()).append(s);
+		sb.append(isLBorRB()).append(s);
 		sb.append(getIGVPos()).append(s);
 		sb.append(isForwardText()).append(s);
 		sb.append(getCigarString()).append(s);
@@ -181,8 +186,50 @@ public class Translocation {
 		
 		return sb.toString();
 	}
+	private int getDistanceToLBRB() {
+		int disLB = this.getDistanceToLB();
+		int disRB = this.getDistanceToRB();
+		int disLBAbs = Math.abs(disLB);
+		int disRBAbs = Math.abs(disRB);
+		if(disLBAbs<disRBAbs) {
+			return disLB;
+		}
+		return disRB;
+	}
+	
+	private int getDistanceToRB() {
+		String seq = this.getTDNASequence();
+		int RBPos = options.getTDNARBPos();
+		ArrayList<Integer> posA = new ArrayList<Integer>();
+		for(SAMRecord sam: sams) {
+			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(options.getChr())) {
+				int disStart = Math.abs(RBPos-sam.getAlignmentEnd());
+				int disEnd = Math.abs(RBPos-sam.getAlignmentStart());
+				if(disStart<disEnd) {
+					posA.add(sam.getAlignmentEnd()-RBPos);
+				}
+				else {
+					posA.add(sam.getAlignmentStart()-RBPos);
+				}
+			}
+		}
+		if(posA.size()>0) {
+			return consensusInt(posA);
+		}
+		return Integer.MIN_VALUE;
+	}
 	public boolean isOK() {
 		return !this.hasErrors();
+	}
+	public String isLBorRB() {
+		int disLB = this.getDistanceToLB();
+		int disRB = this.getDistanceToRB();
+		int disLBAbs = Math.abs(disLB);
+		int disRBAbs = Math.abs(disRB);
+		if(disLBAbs<disRBAbs) {
+			return "LB";
+		}
+		return "RB";
 	}
 	private int getNrSupportJunction() {
 		if(this.hasErrors()) {
@@ -250,6 +297,9 @@ public class Translocation {
 		return this.filler;
 	}
 	private String getType() {
+		if(this.hasErrors()) {
+			return "Probably not correct";
+		}
 		if(this.getNrAnchors(false)==0) {
 			return "Probably not correct";
 		}
@@ -270,6 +320,27 @@ public class Translocation {
 			return "FILLER";
 		}
 	}
+	private int getDistanceToLB() {
+		String seq = this.getTDNASequence();
+		int LBPos = options.getTDNALBPos();
+		ArrayList<Integer> posA = new ArrayList<Integer>();
+		for(SAMRecord sam: sams) {
+			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(options.getChr())) {
+				int disStart = Math.abs(LBPos-sam.getAlignmentEnd());
+				int disEnd = Math.abs(LBPos-sam.getAlignmentStart());
+				if(disStart<disEnd) {
+					posA.add(LBPos-sam.getAlignmentEnd());
+				}
+				else {
+					posA.add(LBPos-sam.getAlignmentStart());
+				}
+			}
+		}
+		if(posA.size()>0) {
+			return consensusInt(posA);
+		}
+		return Integer.MIN_VALUE;
+	}
 
 	private String getGenomicSequence() {
 		//search for the sequences that give the genomic sequence
@@ -283,6 +354,7 @@ public class Translocation {
 				seqs.add(srec.getReadString());
 			}
 		}
+		
 		if(seqs.size()>0) {
 			String seq = consensusString(seqs);
 			//find a right sam
@@ -363,17 +435,23 @@ public class Translocation {
 
 	private String getTranslocationSequence() {
 		//String consensus = getCigarString();
+		
 		ArrayList<String> seqs = new ArrayList<>();
 		for(SAMRecord s:sams) {
 			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
-				seqs.add(s.getReadString());
+				if(s.getReadString().length()>maxSizeTranslocationSequence) {
+					seqs.add(s.getReadString().substring(0, maxSizeTranslocationSequence));
+				}
+				else {
+					seqs.add(s.getReadString());
+				}
 			}
 		}
 		if(seqs.size()>0) {
 			String seq = consensusString(seqs);
 			//check if we need the reverse complement
 			for(SAMRecord s: sams) {
-				if(s.getReadString().equals(seq) && s.getFirstOfPairFlag() == options.isFirstOfPairFlag()) {
+				if(s.getReadString().startsWith(seq) && s.getFirstOfPairFlag() == options.isFirstOfPairFlag()) {
 					//only take the revComplement if s is on the reverse strand
 					if(!s.getContig().equals(options.getChr()) && s.getReadNegativeStrandFlag()) {
 						SAMRecord srev = s.deepCopy();

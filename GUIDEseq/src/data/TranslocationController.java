@@ -151,9 +151,8 @@ public class TranslocationController {
     	end = index+options.getPrimer().length();
     	System.out.println("positions "+start+" - "+end);
 	    SAMRecordIterator r = sr.query(options.getChr(), start, end, false);
-	    int count  =0;
+	    int count = 0;
 	    int NM0Count = 0;
-	    int transChrCount = 0;
 	    int duplicateFlag = 0;
         while(r.hasNext()) {
         	count++;
