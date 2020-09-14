@@ -8,6 +8,8 @@ import org.apache.commons.cli.ParseException;
 
 public class MyOptions {
 private CommandLine cmd;
+private int RBpos = -1;
+private int LBpos = -1;
 	
 	public MyOptions(CommandLine cmd) {
 		this.cmd = cmd;
@@ -69,17 +71,23 @@ private CommandLine cmd;
 		}
 		return 1;
 	}
+	public void setTDNARBPos(int pos) {
+		this.RBpos = pos;
+	}
 	/** hard-coded the RB position
 	 * 
 	 */
 	public int getTDNARBPos() {
-		return 2347;
+		return RBpos;
+	}
+	public void setTDNALBPos(int pos) {
+		this.LBpos = pos;
 	}
 	/** hard-coded the LB position
 	 * 
 	 */
 	public int getTDNALBPos() {
-		return 8626;
+		return LBpos;
 	}
 	public String printParameters() {
 		if(cmd!= null) {
@@ -87,7 +95,9 @@ private CommandLine cmd;
 	        Method[] methods = c.getDeclaredMethods();
 	        StringBuffer sb = new StringBuffer();
 	        for(Method m: methods) {
-	       		if(!m.getName().equals("printParameters") && !m.getName().equals("getPrimerPart") && !m.getName().equals("getClass") && !m.getName().equals("hasOptions")) {
+	       		if(!m.getName().equals("printParameters") && !m.getName().equals("getPrimerPart") 
+	       				&& !m.getName().equals("getClass") && !m.getName().equals("hasOptions")
+	       				&& !m.getName().startsWith("set")) {
 	       			try {
 	       				if(m.invoke(this) != null){
 	       					if(sb.length()>0) {

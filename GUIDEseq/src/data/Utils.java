@@ -1,6 +1,22 @@
 package data;
 
+import htsjdk.samtools.CigarElement;
+import htsjdk.samtools.SAMRecord;
+
 public class Utils {
+	public static int totalSAMRecordReadSize(SAMRecord srec) {
+		if(!srec.getCigarString().contains("H")) {
+			return srec.getReadLength();
+		}
+		else {
+			int length = 0;
+			//also include the 'H' element
+			for(CigarElement ce: srec.getCigar()) {
+				length+=ce.getLength();
+			}
+			return length;
+		}
+	}
 	public static String longestCommonSubstring(String S1, String S2)
 	{
 		int Start = 0;

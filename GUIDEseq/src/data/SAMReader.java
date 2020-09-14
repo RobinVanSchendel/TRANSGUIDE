@@ -10,6 +10,10 @@ import org.apache.commons.cli.ParseException;
 
 public class SAMReader {
 	public static void main(String[] args) {
+		
+		for(String str: args) {
+			//System.out.println(str);
+		}
 		Options optionsApache = createOptions();
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = null;
@@ -23,15 +27,16 @@ public class SAMReader {
 		}
 		MyOptions options = new MyOptions(cmd);
 		
-		System.out.println(options.printParameters());
+		//System.out.println(options.printParameters());
         TranslocationController tc = new TranslocationController(options);
+        tc.testLBRB();
         tc.launchAnalysis();
     }
 
 	private static Options createOptions() {
 		Options o = new Options();
 		//threads
-		Option i   = Option.builder( "i" )
+		Option i = Option.builder( "i" )
 				.longOpt("input")
                 .hasArg()
                 .argName("FILE")
