@@ -28,9 +28,9 @@ public class OutputCommands {
 						//System.out.println("-i \""+f.getAbsolutePath()+"\" "+rb);
 					//}
 				//}
-						//if(f.getName().contains("LZ34-2-R_S6.sorted.bam")) {
+						if(f.getName().contains("LZ35-1-R_S168.sorted.bam")) {
 							SAMReader.main(s.split(" "));
-						//}
+						}
 			//}
 		}
 	}

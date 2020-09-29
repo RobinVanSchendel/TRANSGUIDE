@@ -129,6 +129,6 @@ private int LBpos = -1;
 	}
 
 	public static int getMaxMismatches() {
-		return 0;
+		return 1;
 	}
 }

@@ -9,14 +9,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import dnaanalysis.InsertionSolverTwoSides;
+import dnaanalysis.RandomInsertionSolverTwoSides;
 import htsjdk.samtools.*;
+import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
+import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
 
 public class Translocation {
 	private static final String NOGENOMIC = "NOGENOMIC";
 	private static final String NOTRANSLOCATION = "NOTRANSLOCATION";
 	private static final int refSize = 500;
 	private static final int maxSizeTranslocationSequence = 151;
+	private static final int minSizeInsertionSolver = 6;
 	public ArrayList<SAMRecord> sams;
 	public HashMap<String, Integer> names;
 	private String filler = "";
@@ -26,6 +31,7 @@ public class Translocation {
 	private String realPositionCounter;
 	private MyOptions options;
 	private String warning;
+	private InsertionSolverTwoSides is;
 
 	public Translocation(SAMRecord s, MyOptions options) {
 		sams = new ArrayList<SAMRecord>();
@@ -156,7 +162,19 @@ public class Translocation {
 		sb.append("GenomicSequence").append(s);
 		sb.append("Type").append(s);
 		sb.append("Homology").append(s);
+		sb.append("HomologyLength").append(s);
 		sb.append("Filler").append(s);
+		sb.append("FillerLength").append(s);
+		sb.append("FillerIsTemplated").append(s);
+		sb.append("getLargestMatchString").append(s);
+		sb.append("getSubS").append(s);
+		sb.append("getSubS2").append(s);
+		sb.append("getType").append(s);
+		sb.append("getLengthS").append(s);
+		sb.append("getPosS").append(s);
+		sb.append("getFirstHit").append(s);
+		sb.append("getFirstPos").append(s);
+		sb.append("TotalLength").append(s);
 		sb.append("RefSequence").append(s);
 		sb.append("error").append(s);
 		sb.append("warning").append(s);
@@ -189,7 +207,31 @@ public class Translocation {
 		sb.append(getGenomicSequence()).append(s);
 		sb.append(getType()).append(s);
 		sb.append(getHomology()).append(s);
+		sb.append(getHomology().length()).append(s);
 		sb.append(getFiller()).append(s);
+		sb.append(getFiller().length()).append(s);
+		sb.append(getFillerIsTemplated(-100,100,5)).append(s);
+		if(is!=null) {
+			sb.append(is.getLargestMatchString()).append(s);
+			sb.append(is.getSubS()).append(s);
+			sb.append(is.getSubS2()).append(s);
+			sb.append(is.getType()).append(s);
+			sb.append(is.getLengthS()).append(s);
+			sb.append(is.getPosS()).append(s);
+			sb.append(is.getFirstHit()).append(s);
+			sb.append(is.getFirstPos()).append(s);
+		}
+		else {
+			sb.append("").append(s);
+			sb.append("").append(s);
+			sb.append("").append(s);
+			sb.append("").append(s);
+			sb.append("").append(s);
+			sb.append("").append(s);
+			sb.append("").append(s);
+			sb.append("").append(s);
+		}
+		sb.append(-1*getHomology().length()+getFiller().length()).append(s);
 		sb.append(ref).append(s);
 		sb.append(error).append(s);
 		sb.append(warning).append(s);
@@ -204,6 +246,93 @@ public class Translocation {
 		}
 		
 		return sb.toString();
+	}
+	private boolean getFillerIsTemplated(int start, int end, int maxTries) {
+		if(this.isOK() && this.getFiller().length()>=minSizeInsertionSolver){
+			//there was a bug here if the size was too small
+			//get a piece left and right of the TDNA
+			//TODO get the correct piece
+			String left = this.getTDNASequenceRelative(start, end);
+			//this value now contains the number as well
+			int adjustmentLeft = start;//Integer.parseInt(left.length());
+			
+			String right = this.getGenomicSequenceRelative(start,end); 
+			int adjustmentRight = start;//Integer.parseInt(-1);
+			is = new InsertionSolverTwoSides(left, right,this.getFiller(),"test");
+			is.setAdjustedPositionLeft(adjustmentLeft);		
+			is.setAdjustedPositionRight(adjustmentRight);
+			is.search(true, true);
+			is.setMaxTriesSolved(maxTries);
+			is.setMinimumMatch(minSizeInsertionSolver, false);
+			is.solveInsertion();
+			//now determine if this is random or not
+			//one peculiar thing is if the flanks overlap it is not quite fair anymore
+			//if(is.getLargestMatchString().contentEquals("tgctctagccaatacgcaa")) {
+			//	System.out.println(left);
+			//	System.exit(0);
+			//}
+			
+			RandomInsertionSolverTwoSides ris = new RandomInsertionSolverTwoSides(left,right, getFiller());
+			boolean isFlankInsert = ris.isNonRandomInsert(0.9, is.getLargestMatch());
+			return isFlankInsert;
+			
+		}
+		return false;
+	}
+	private String getGenomicSequenceRelative(int start, int end) {
+		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(options.getRefFile());
+	    //SAMRecordIterator r = sr.iterator();
+	    String chr = this.getContigMate();
+	    int startPos = this.getRealPosition()+start;
+	    int endPos = this.getRealPosition()+end;
+	    ReferenceSequence rs = rsf.getSequence(chr);
+	    String part = rs.getBaseString().substring(startPos,endPos);
+	    if(this.isForward()) {
+	    	part = Utils.reverseComplement(part);
+	    }
+	    return part;
+	}
+	private String getTDNASequenceRelative(int start, int end) {
+		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(options.getRefFile());
+	    //SAMRecordIterator r = sr.iterator();
+	    String chr = options.getChr();
+	    
+	    ReferenceSequence rs = rsf.getSequence(chr);
+	    String tdna = this.getTDNASequence();
+	    for(SAMRecord sam: sams) {
+	    	if(sam.getReadString().startsWith(tdna) && sam.getContig().equals(options.getChr())) {
+	    		if(!sam.getReadNegativeStrandFlag()) {
+		    		int pos = sam.getAlignmentEnd();
+		    		//System.out.println(pos);
+		    		int startPos = pos+start;
+		    		int endPos = pos+end;
+		    		String seq = rs.getBaseString().substring(startPos, endPos);
+		    		//System.out.println(sam.getCigarString());
+		    		//System.out.println(sam.getReadString());
+		    		//System.out.println(sam.getReadNegativeStrandFlag());
+		    		//System.out.println(seq);
+		    		return seq;
+	    		}
+	    		//reverse strand, junction is at start of alignment
+	    		else {
+	    			int pos = sam.getAlignmentStart();
+		    		//System.out.println(pos);
+		    		int startPos = pos+start;
+		    		int endPos = pos+end;
+		    		String seq = rs.getBaseString().substring(startPos, endPos);
+		    		//need the rc
+		    		seq = Utils.reverseComplement(seq);
+		    		//System.out.println(sam.getCigarString());
+		    		//System.out.println(sam.getReadString());
+		    		//System.out.println(sam.getReadNegativeStrandFlag());
+		    		//System.out.println(seq);
+		    		return seq;
+	    		}
+	    	}
+	    }
+	    
+	    
+		return null;
 	}
 	private int getDistanceToLBRB() {
 		int disLB = this.getDistanceToLB();
@@ -579,6 +708,19 @@ public class Translocation {
 			String highest = ""+al.get(0)/total;
 			String secondHighest = "|"+al.get(1)/total;
 			highestTwo = highest+secondHighest;
+			String one = null;
+			String two = null;
+			for(String key: seqsDiff.keySet()) {
+				if(seqsDiff.get(key)==al.get(0)) {
+					one = key;
+				}
+				if(seqsDiff.get(key)==al.get(0)) {
+					two = key;
+				}
+			}
+			int sizeDiff = Math.abs(one.length()-two.length());
+			highestTwo+="|"+sizeDiff;
+			
 		}
 		return seqsDiff.size()+"|"+total+"|"+highestTwo;
 	}
