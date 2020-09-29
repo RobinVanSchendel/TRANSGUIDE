@@ -7,30 +7,30 @@ import java.util.Vector;
 public class OutputCommands {
 
 	public static void main(String[] args) {
-		String dir = "E:\\NGS\\GUIDEseq_Exp5\\";
+		String dir = "E:\\NGS\\GUIDEseq_Exp5\\plasmidMapped\\";
 		//String dir = "E:\\NGS\\all_bams\\analysisTDNAonly151";
 		//String dir = "E:\\NGS\\GUIDEseq\\sortedbams";
 		//String refseq = "E:\\NGS\\GUIDEseq\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa";
-		//String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa";
-		String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC_tdna.dna.genome.fa";
+		String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa";
+		//String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC_tdna.dna.genome.fa";
 		ArrayList<File> files = searchSortedBam(new File(dir));
-		//String chr= "-c pUBC-YFP-Dest";
-		String chr= "-c pUBC_tDNA_part";
+		String chr= "-c pUBC-YFP-Dest";
+		//String chr= "-c pUBC_tDNA_part";
 		for(File f: files) {
 			//if(f.getName().contains("rmdup")) {
 				String primer = getPrimer(f);
 				//if(f.getName().contains("Total")) {
 					//if(f.getName().startsWith("LB")) {
-						String s = "-i \""+f.getAbsolutePath()+"\" "+primer+" "+chr+" -r"+refseq +" -P7";
-						//System.out.println(s);
+						String s = "-i \""+f.getAbsolutePath()+"\" "+primer+" "+chr+" -r "+refseq +" -P7";
+						System.out.println(s);
 					//}
 					//else {
 						//System.out.println("-i \""+f.getAbsolutePath()+"\" "+rb);
 					//}
 				//}
-						if(f.getName().contains("LZ30-1-L_S1.sorted.bam")) {
+						//if(f.getName().contains("LZ34-2-R_S6.sorted.bam")) {
 							SAMReader.main(s.split(" "));
-						}
+						//}
 			//}
 		}
 	}

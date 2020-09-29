@@ -1,5 +1,6 @@
 package data;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class Translocation {
 	private String ref;
 	private String realPositionCounter;
 	private MyOptions options;
+	private String warning;
 
 	public Translocation(SAMRecord s, MyOptions options) {
 		sams = new ArrayList<SAMRecord>();
@@ -42,7 +44,6 @@ public class Translocation {
 		//	return;
 		//}
 		//all others can be added
-		
 		sams.add(s);
 		names.put(s.getReadName(),0);
 		return true;
@@ -158,6 +159,7 @@ public class Translocation {
 		sb.append("Filler").append(s);
 		sb.append("RefSequence").append(s);
 		sb.append("error").append(s);
+		sb.append("warning").append(s);
 		sb.append("isOK").append(s);
 		sb.append("getTDNASequenceDiffReads").append(s);
 		sb.append("getTDNASequenceDiffReadsHighestContributor").append(s);
@@ -190,6 +192,7 @@ public class Translocation {
 		sb.append(getFiller()).append(s);
 		sb.append(ref).append(s);
 		sb.append(error).append(s);
+		sb.append(warning).append(s);
 		sb.append(isOK()).append(s);
 		sb.append(getTDNASequenceDiffReads()).append(s);
 		sb.append(getTDNASequenceDiffReadsHighestContributor()).append(s);
@@ -564,10 +567,20 @@ public class Translocation {
 			}
 		}
 		double total = 0;
+		ArrayList<Integer> al = new ArrayList<Integer>();
 		for(String key: seqsDiff.keySet()) {
 			total+= seqsDiff.get(key);
+			al.add(seqsDiff.get(key));
 		}
-		return seqsDiff.size()+"|"+total;
+		//sort, highest first
+		Collections.sort(al, Collections.reverseOrder());
+		String highestTwo = "";
+		if(al.size()>=2) {
+			String highest = ""+al.get(0)/total;
+			String secondHighest = "|"+al.get(1)/total;
+			highestTwo = highest+secondHighest;
+		}
+		return seqsDiff.size()+"|"+total+"|"+highestTwo;
 	}
 	private double getTDNASequenceDiffReadsHighestContributor(){
 		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
@@ -618,7 +631,9 @@ public class Translocation {
 		ArrayList<String> seqs = new ArrayList<String>();
 		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
 		//simplest case if second in pair and primary alignment
-		
+		if(debug) {
+			System.out.println("####TDNA adding:");
+		}
 		for(SAMRecord sam: sams) {
 			if(!sam.isSecondaryAlignment() && sam.getContig().equals(options.getChr())) {
 				//up unto the M
@@ -640,6 +655,9 @@ public class Translocation {
 						seqsDiff.put(seq, 0);
 					}
 					seqsDiff.put(seq,seqsDiff.get(seq)+1);
+					if(debug) {
+						System.out.println("putting1 "+seq+" "+sam.getCigarString() +" "+sam.getReadString()+" "+sam.getContig()+" "+sam.getReadName());						
+					}
 				}
 			}
 			//most go here!
@@ -650,6 +668,9 @@ public class Translocation {
 					seqsDiff.put(seq, 0);
 				}
 				seqsDiff.put(seq,seqsDiff.get(seq)+1);
+				if(debug) {
+					System.out.println("putting2 "+seq+" "+sam.getCigarString()  );						
+				}
 				/*
 				if(this.getPosition()==2923296) {
 					for(SAMRecord sam2: sams) {
@@ -888,9 +909,21 @@ public class Translocation {
 				}
 			}
 			*/
-			return tag == 0;
+			return tag <= MyOptions.getMaxMismatches();
+			//return tag == 0;
 		}
 		return true;
+	}
+	private void addWarning(String string) {
+		if(warning == null) {
+			warning = string;
+		}
+		else {
+			if(warning.length()>0) {
+				warning+=":";
+			}
+			warning += string;
+		}
 	}
 	private void addError(String string) {
 		if(error == null) {
@@ -938,15 +971,31 @@ public class Translocation {
 				this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
 			}
 			if(!this.ref.startsWith(this.getGenomicSequence())) {
-				this.addError("Ref sequence deviates from sequence in reads");
+				int getMismatches = getMismatches(ref,this.getGenomicSequence());
+				if(getMismatches <= MyOptions.getMaxMismatches()) {
+					addWarning("Ref sequence has "+getMismatches+" mismatches with genomic sequence");
+				}
+				else {
+					this.addError("Ref sequence deviates from sequence in reads");
+				}
 			}
 		}
+	}
+	private int getMismatches(String ref, String g) {
+		int len = Math.min(ref.length(), g.length());
+		int mismatches = 0;
+		for(int i=0;i<len;i++) {
+			if(ref.charAt(i)!=g.charAt(i)) {
+				mismatches++;
+			}
+		}
+		return mismatches;
 	}
 	public void printDebug() {
 		String tl = this.toString();
 		for(SAMRecord sr: sams) {
 			tl+="\n\t";
-			tl+=sr.getReadString()+" "+sr.getAlignmentStart();// +" "+sr.getAttributes().toString();
+			tl+=sr.getReadString()+" "+sr.getContig()+":"+sr.getAlignmentStart()+" "+sr.getCigarString() +" "+sr.getFirstOfPairFlag()+" "+sr.getMappingQuality();// +" "+sr.getAttributes().toString();
 		}
 		System.out.println(tl);
 		System.out.println("TDNA SEQ:");

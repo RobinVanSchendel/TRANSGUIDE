@@ -127,4 +127,8 @@ private int LBpos = -1;
 			return getBam().getAbsolutePath()+"output.txt";
 		}
 	}
+
+	public static int getMaxMismatches() {
+		return 0;
+	}
 }

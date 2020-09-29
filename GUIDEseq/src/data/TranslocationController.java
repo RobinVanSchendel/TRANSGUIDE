@@ -239,7 +239,7 @@ public class TranslocationController {
 	    int count = 0;
 	    int NM0Count = 0;
 	    int duplicateFlag = 0;
-	    boolean debug = true;
+	    boolean debug = false;
         while(r.hasNext()) {
         	count++;
         	SAMRecord srec = r.next();
@@ -247,7 +247,8 @@ public class TranslocationController {
         		//System.err.println("Still here");
         	}
         	//only take 0 mismatches reads
-        	if(Translocation.getNMis0(srec)) {
+        	//20200920 only take reads with max cigar length of 2
+        	if(Translocation.getNMis0(srec) && srec.getCigarLength()<=2) {
         		if(debug) {
             		//System.err.println("Still here NM0");
             	}
@@ -360,8 +361,8 @@ public class TranslocationController {
 			e.printStackTrace();
 		}
         if(debug) {
-        	String debugChr = "2";
-        	int startDebug = 6934177-5000;
+        	String debugChr = "5";
+        	int startDebug = 25525688-5000;
     		int endDebug = startDebug+10000;
     		boolean forward = false;
     		Translocation tl = searchTranslocation(debugChr,startDebug, endDebug, forward);
