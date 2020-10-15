@@ -4,5 +4,6 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/htsjdk"/>
 	<classpathentry kind="lib" path="libraries/commons-cli-1.4.jar"/>
+	<classpathentry kind="src" path="/DNAToolAnalysis"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

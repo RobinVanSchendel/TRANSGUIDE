@@ -7,7 +7,7 @@ import java.util.Vector;
 public class OutputCommands {
 
 	public static void main(String[] args) {
-		String dir = "E:\\NGS\\GUIDEseq_Exp5\\plasmidMapped\\";
+		String dir = "E:\\NGS\\GUIDEseq_Exp5\\300bpPlasmidMapped\\";
 		//String dir = "E:\\NGS\\all_bams\\analysisTDNAonly151";
 		//String dir = "E:\\NGS\\GUIDEseq\\sortedbams";
 		//String refseq = "E:\\NGS\\GUIDEseq\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa";
@@ -28,9 +28,9 @@ public class OutputCommands {
 						//System.out.println("-i \""+f.getAbsolutePath()+"\" "+rb);
 					//}
 				//}
-						if(f.getName().contains("LZ35-1-R_S168.sorted.bam")) {
+						//if(f.getName().contains("LZ34-1-L_S5.sorted.bam")) {
 							SAMReader.main(s.split(" "));
-						}
+						//}
 			//}
 		}
 	}

@@ -362,7 +362,7 @@ public class TranslocationController {
 		}
         if(debug) {
         	String debugChr = "5";
-        	int startDebug = 25525688-5000;
+        	int startDebug = 24099423-5000;
     		int endDebug = startDebug+10000;
     		boolean forward = false;
     		Translocation tl = searchTranslocation(debugChr,startDebug, endDebug, forward);

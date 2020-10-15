@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import dnaanalysis.InsertionSolverTwoSides;
 import dnaanalysis.RandomInsertionSolverTwoSides;
 import htsjdk.samtools.*;
+import htsjdk.samtools.SAMRecord.SAMTagAndValue;
 import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
@@ -20,8 +21,8 @@ public class Translocation {
 	private static final String NOGENOMIC = "NOGENOMIC";
 	private static final String NOTRANSLOCATION = "NOTRANSLOCATION";
 	private static final int refSize = 500;
-	private static final int maxSizeTranslocationSequence = 151;
 	private static final int minSizeInsertionSolver = 6;
+	private static final int ANCHORLENGTH = 150;
 	public ArrayList<SAMRecord> sams;
 	public HashMap<String, Integer> names;
 	private String filler = "";
@@ -70,48 +71,59 @@ public class Translocation {
 	public int getNrAnchors(boolean addPartial) {
 		int count = 0;
 		ArrayList<Integer> uniquePos = new ArrayList<Integer>();
+		boolean newWay = true;
 		for(SAMRecord sam: sams) {
 			//only get the opposite reads
 			if(sam.getFirstOfPairFlag() != options.isFirstOfPairFlag()) {
 				//System.out.println("Still here first "+sam.getReadName() + " "+Translocation.getNMis0(sam) +" "+ sam.getAttribute("NM"));
 				//no mismatches
-				if(Translocation.getNMis0(sam)) {
-					//mapping quality of >50 && only one cigar part
-					//System.out.println("Still here NM0 "+sam.getReadName());
-					if(sam.getMappingQuality()>50) {
-						//System.out.println("Still here MQ>50 "+sam.getReadName() +" "+ sam.getCigarString());
-						//complete Match
-						if(sam.getCigarLength()==1) {
-							//cigar has to be a match
-							if(sam.getCigarString().endsWith("M")) {
-								if(!uniquePos.contains(sam.getAlignmentStart())) {
-									//System.out.println("+1");
-									count++;
-									uniquePos.add(sam.getAlignmentStart());
+				int matchNucleotides = Translocation.getMatchLength(sam, ANCHORLENGTH);
+				if(newWay && sam.getMappingQuality()>50 && matchNucleotides>=ANCHORLENGTH) {
+					count++;
+				}
+				else if(!newWay) {
+					if(Translocation.getNMis0(sam)) {
+						//mapping quality of >50 && only one cigar part
+						//System.out.println("Still here NM0 "+sam.getReadName());
+						if(sam.getMappingQuality()>50) {
+							//System.out.println("Still here MQ>50 "+sam.getReadName() +" "+ sam.getCigarString());
+							//complete Match
+							if(sam.getCigarLength()==1) {
+								//cigar has to be a match
+								if(sam.getCigarString().endsWith("M")) {
+									if(!uniquePos.contains(sam.getAlignmentStart())) {
+										//System.out.println("+1");
+										count++;
+										uniquePos.add(sam.getAlignmentStart());
+									}
+									if(!addPartial && sam.getContig().contentEquals("1") && sam.getAlignmentStart()>7740900 && sam.getAlignmentEnd()<7741500) {
+										System.out.println(sam.toString());
+										System.out.println(sam.getCigarString());
+									}
+									//System.out.println(sam.getCigarString());
 								}
-								//System.out.println(sam.getCigarString());
 							}
-						}
-						//partial match
-						else if(addPartial && sam.getCigarLength()==2) {
-							int lengthMatch = 0;
-							int position = 0;
-							if(sam.getCigar().getCigarElement(0).getOperator() == CigarOperator.M) {
-								lengthMatch = sam.getCigar().getCigarElement(0).getLength();
-								//the start determines uniqueness
-								position = sam.getAlignmentStart();
-							}
-							else if(sam.getCigar().getCigarElement(1).getOperator() == CigarOperator.M) {
-								lengthMatch = sam.getCigar().getCigarElement(1).getLength();
-								//the end determines uniqueness
-								position = sam.getAlignmentEnd();
-							}
-							//System.out.println("Partial match "+lengthMatch);
-							//maybe 70 is a bit arbitrary
-							if(lengthMatch>=70) {
-								if(!uniquePos.contains(position)) {
-									count++;
-									uniquePos.add(position);
+							//partial match
+							else if(addPartial && sam.getCigarLength()==2) {
+								int lengthMatch = 0;
+								int position = 0;
+								if(sam.getCigar().getCigarElement(0).getOperator() == CigarOperator.M) {
+									lengthMatch = sam.getCigar().getCigarElement(0).getLength();
+									//the start determines uniqueness
+									position = sam.getAlignmentStart();
+								}
+								else if(sam.getCigar().getCigarElement(1).getOperator() == CigarOperator.M) {
+									lengthMatch = sam.getCigar().getCigarElement(1).getLength();
+									//the end determines uniqueness
+									position = sam.getAlignmentEnd();
+								}
+								//System.out.println("Partial match "+lengthMatch);
+								//maybe 70 is a bit arbitrary
+								if(lengthMatch>=70) {
+									if(!uniquePos.contains(position)) {
+										count++;
+										uniquePos.add(position);
+									}
 								}
 							}
 						}
@@ -120,6 +132,68 @@ public class Translocation {
 			}
 		}
 		return count;
+	}
+	//get the the anchor lenght of this read, which is the first or last cigar, which has to be M and then the size
+	private static int getMatchLength(SAMRecord sam, int anchorLength) {
+		CigarElement needed = null;
+		if(sam.getReadNegativeStrandFlag()) {
+			needed = sam.getCigar().getCigarElement(sam.getCigarLength()-1);
+		}
+		else {
+			needed = sam.getCigar().getCigarElement(0);
+		}
+		if(needed.getOperator()== CigarOperator.M) {
+			return Math.min(needed.getLength(), anchorLength);
+		}
+		return 0;
+		/*
+		int tag = (Integer) sam.getAttribute("NM");
+		if(tag==0) {
+			//System.out.println(sam.getCigarString());
+			return anchorLength;
+		}
+		//find first mismatch
+		else {
+			//System.out.println(sam.toString());
+			//System.out.println(sam.getCigar()+" cigar");
+			//System.out.println(sam.getReadString());
+			String MD = (String)sam.getAttribute("MD");
+			//System.out.println("mismatch "+tag);
+			//System.out.println("mdstring "+MD);
+			//System.out.println(sam.getReadNegativeStrandFlag());
+			String[] parts = MD.split("[A-Z]|\\^[A-Z]+");
+			//System.out.println(parts.length);
+			//some other tags here
+			if(parts.length==1) {
+				CigarElement needed = null;
+				if(sam.getReadNegativeStrandFlag()) {
+					needed = sam.getCigar().getCigarElement(sam.getCigarLength()-1);
+				}
+				else {
+					needed = sam.getCigar().getCigarElement(0);
+				}
+				if(needed.getOperator()== CigarOperator.M) {
+					return Math.min(needed.getLength(), anchorLength);
+				}
+				//no good
+				return 0;	
+			}
+			int length = 0;
+			if(sam.getReadNegativeStrandFlag()) {
+				if(partial) {
+					length += Integer.parseInt(parts[parts.length-2]);
+				}
+				length += Integer.parseInt(parts[parts.length-1]);
+			}
+			else {
+				if(partial) {
+					length += Integer.parseInt(parts[1]);
+				}
+				length += Integer.parseInt(parts[0]);
+			}
+			return Math.min(length, anchorLength);
+		}
+		*/
 	}
 	public int getSizePrimary() {
 		int count = 0;
@@ -286,6 +360,13 @@ public class Translocation {
 	    int startPos = this.getRealPosition()+start;
 	    int endPos = this.getRealPosition()+end;
 	    ReferenceSequence rs = rsf.getSequence(chr);
+	    //System.out.println(this.error);
+	    //System.out.println(chr+":"+getRealPosition());
+	    //System.out.println(startPos);
+	    //System.out.println(endPos);
+	    if(startPos<0) {
+	    	startPos = 0;
+	    }
 	    String part = rs.getBaseString().substring(startPos,endPos);
 	    if(this.isForward()) {
 	    	part = Utils.reverseComplement(part);
@@ -417,7 +498,7 @@ public class Translocation {
 		int size = 30;
 		int locJunction = -1;
 		String tdnaOrig = this.getTDNASequence();
-		String junction = this.getTranslocationSequence();
+		String junction = this.getTranslocationSequence(debug);
 		String genomicOrig = this.getGenomicSequence();
 		//might overshoot otherwise
 		String tdna = Utils.longestCommonSubstring(tdnaOrig, junction);
@@ -471,7 +552,8 @@ public class Translocation {
 		
 		int max = Math.min(genomicOrig.length(), junction.length());
 		int maxHit = -1;
-		for(int i=1;i<=max;i++) {
+		//BUG: should be a minumum of 5 nucleotides
+		for(int i=5;i<=max;i++) {
 			String seqJ = junction.substring(junction.length()-i);
 			if(genomicOrig.startsWith(seqJ)) {
 				maxHit = i;
@@ -714,7 +796,7 @@ public class Translocation {
 				if(seqsDiff.get(key)==al.get(0)) {
 					one = key;
 				}
-				if(seqsDiff.get(key)==al.get(0)) {
+				if(seqsDiff.get(key)==al.get(1)) {
 					two = key;
 				}
 			}
@@ -840,19 +922,17 @@ public class Translocation {
 		}
 		return "unknown";
 	}
-
 	public String getTranslocationSequence() {
+		return getTranslocationSequence(false);
+	}
+
+	public String getTranslocationSequence(boolean debug) {
 		//String consensus = getCigarString();
 		
 		ArrayList<String> seqs = new ArrayList<>();
 		for(SAMRecord s:sams) {
 			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
-				if(s.getReadString().length()>maxSizeTranslocationSequence) {
-					seqs.add(s.getReadString().substring(0, maxSizeTranslocationSequence));
-				}
-				else {
-					seqs.add(s.getReadString());
-				}
+				seqs.add(s.getReadString());
 			}
 		}
 		if(seqs.size()>0) {
