@@ -284,7 +284,7 @@ public class Translocation {
 		sb.append(getHomology().length()).append(s);
 		sb.append(getFiller()).append(s);
 		sb.append(getFiller().length()).append(s);
-		sb.append(getFillerIsTemplated(-100,100,5)).append(s);
+		//sb.append(getFillerIsTemplated(-100,100,5)).append(s);
 		if(is!=null) {
 			sb.append(is.getLargestMatchString()).append(s);
 			sb.append(is.getSubS()).append(s);
@@ -432,13 +432,25 @@ public class Translocation {
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
 			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(options.getChr())) {
-				int disStart = Math.abs(RBPos-sam.getAlignmentEnd());
-				int disEnd = Math.abs(RBPos-sam.getAlignmentStart());
-				if(disStart<disEnd) {
-					posA.add(RBPos-sam.getAlignmentEnd());
+				if(!options.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
+					int distance = sam.getAlignmentEnd()-RBPos;
+					posA.add(distance);
+				}
+				else if(options.getTDNARBisForward() && sam.getReadNegativeStrandFlag()) {
+					int distance = RBPos-sam.getAlignmentStart();
+					posA.add(distance);
 				}
 				else {
-					posA.add(RBPos-sam.getAlignmentStart());
+					//Probably better to know if sample is directed at LB or RB
+					return Integer.MAX_VALUE;
+					/*
+					System.err.println(options.getTDNARBisForward());
+					System.err.println(options.getPrimer());
+					System.err.println(sam.getReadNegativeStrandFlag());
+					System.err.println(sam.getReadString());
+					System.err.println("RB: Some logical erro in my thinking...");
+					System.exit(0);
+					*/
 				}
 			}
 		}
@@ -612,15 +624,29 @@ public class Translocation {
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
 			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(options.getChr())) {
-				int disStart = Math.abs(LBPos-sam.getAlignmentEnd());
-				int disEnd = Math.abs(LBPos-sam.getAlignmentStart());
-				if(disStart<disEnd) {
-					//System.out.println(LBPos-sam.getAlignmentEnd());
-					posA.add(sam.getAlignmentEnd()-LBPos);
+				//System.out.println(sam.getReadNegativeStrandFlag());
+				//System.out.println(seq);
+				
+				if(options.getTDNALBisForward() && !sam.getReadNegativeStrandFlag()) {
+					int distance = sam.getAlignmentEnd()-LBPos;
+					posA.add(distance);
+				}
+				else if(!options.getTDNALBisForward() && sam.getReadNegativeStrandFlag()) {
+					int distance = LBPos-sam.getAlignmentStart();
+					posA.add(distance);
 				}
 				else {
-					//System.out.println(LBPos-sam.getAlignmentStart());
-					posA.add(sam.getAlignmentStart()-LBPos);
+					//probably this is a read at the RB side
+					return Integer.MAX_VALUE;
+					/*
+					System.err.println(options.getTDNALBisForward());
+					System.err.println(options.getPrimer());
+					System.err.println(sam.getReadNegativeStrandFlag());
+					System.err.println(sam.getReadString());
+					
+					System.err.println("LB: Some logical erro in my thinking...");
+					System.exit(0);
+					*/
 				}
 			}
 		}

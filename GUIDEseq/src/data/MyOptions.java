@@ -10,6 +10,8 @@ public class MyOptions {
 private CommandLine cmd;
 private int RBpos = -1;
 private int LBpos = -1;
+private boolean LBisForward;
+private boolean RBisForward;
 	
 	public MyOptions(CommandLine cmd) {
 		this.cmd = cmd;
@@ -71,7 +73,8 @@ private int LBpos = -1;
 		}
 		return 1;
 	}
-	public void setTDNARBPos(int pos) {
+	public void setTDNARBPos(int pos, boolean rBisForward) {
+		this.RBisForward = rBisForward;
 		this.RBpos = pos;
 	}
 	/** hard-coded the RB position
@@ -80,7 +83,8 @@ private int LBpos = -1;
 	public int getTDNARBPos() {
 		return RBpos;
 	}
-	public void setTDNALBPos(int pos) {
+	public void setTDNALBPos(int pos, boolean lBisForward) {
+		this.LBisForward = lBisForward;
 		this.LBpos = pos;
 	}
 	/** hard-coded the LB position
@@ -88,6 +92,12 @@ private int LBpos = -1;
 	 */
 	public int getTDNALBPos() {
 		return LBpos;
+	}
+	public boolean getTDNALBisForward() {
+		return this.LBisForward;
+	}
+	public boolean getTDNARBisForward() {
+		return this.RBisForward;
 	}
 	public String printParameters() {
 		if(cmd!= null) {

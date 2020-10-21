@@ -230,7 +230,7 @@ public class TranslocationController {
     	primerStart = start;
     	primerEnd = end;
     	//System.out.println("positions "+start+" - "+end);
-    	//System.out.println(options.getChr());
+    	//System.out.println("["+options.getChr()+"]");
     	//System.out.println(start);
     	//System.out.println(end);
     	//System.out.println(sr.hasIndex());
@@ -397,17 +397,22 @@ public class TranslocationController {
 
 	public void testLBRB() {
 		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(options.getRefFile());
-	    //SAMRecordIterator r = sr.iterator();
+	    //System.out.println(rsf.isIndexed());
+		//System.out.println("["+options.getRefFile()+"]");
 	    String chr = options.getChr();
 	    ReferenceSequence rs = rsf.getSequence(chr);
+	    //System.out.println(rs==null);
 	    String TDNA = rs.getBaseString().toUpperCase();
 	    int indexLB = TDNA.indexOf(LB);
 	    //maybe reverse complement?
+	    boolean LBisForward = true;
+	    boolean RBisForward = true;
 	    if(indexLB == -1) {
 	    	indexLB = TDNA.indexOf(Utils.reverseComplement(LB));
 	    	if(indexLB>=0) {
 	    		indexLB+=3;
 	    	}
+	    	LBisForward = false;
 	    }
 	    //nick position
 	    else {
@@ -419,6 +424,7 @@ public class TranslocationController {
 	    	if(indexRB>=0) {
 	    		indexRB+=2;
 	    	}
+	    	RBisForward = false;
 	    }
 	    else {
 	    	indexRB +=23;
@@ -428,10 +434,12 @@ public class TranslocationController {
 	    	//System.err.println("LB: "+indexLB);
 		    //System.err.println("RB: "+indexRB);
 		    //System.exit(0);
+	    	LBisForward = false;
+	    	RBisForward = true;
 	    	indexLB = 1;
 		    indexRB = TDNA.length();
 	    }
-	    options.setTDNALBPos(indexLB);
-	    options.setTDNARBPos(indexRB);
+	    options.setTDNALBPos(indexLB, LBisForward);
+	    options.setTDNARBPos(indexRB, RBisForward);
 	}
 }

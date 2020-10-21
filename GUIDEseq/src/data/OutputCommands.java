@@ -7,29 +7,45 @@ import java.util.Vector;
 public class OutputCommands {
 
 	public static void main(String[] args) {
-		String dir = "E:\\NGS\\GUIDEseq_Exp5\\300bpPlasmidMapped\\";
+		String dir = "E:\\NGS\\GUIDEseq_Exp6";
 		//String dir = "E:\\NGS\\all_bams\\analysisTDNAonly151";
 		//String dir = "E:\\NGS\\GUIDEseq\\sortedbams";
 		//String refseq = "E:\\NGS\\GUIDEseq\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa";
 		String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa";
 		//String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC_tdna.dna.genome.fa";
 		ArrayList<File> files = searchSortedBam(new File(dir));
-		String chr= "-c pUBC-YFP-Dest";
+		PrimerController pc = new PrimerController(new File("Sample_Primer.txt"));
+		//String chr= "pUBC-YFP-Dest";
 		//String chr= "-c pUBC_tDNA_part";
 		for(File f: files) {
+			System.out.println(f.getName()+"\t"+pc.getPrimer(f));
+		}
+		for(File f: files) {
 			//if(f.getName().contains("rmdup")) {
-				String primer = getPrimer(f);
-				//if(f.getName().contains("Total")) {
+				//if(f.getName().contains("LZ")) {
+					//String primer = getPrimer(f);
+					String primer = pc.getPrimer(f);
+					String chr = pc.getChr(f);
 					//if(f.getName().startsWith("LB")) {
+						Vector<String> v = new Vector<String>();
+						v.add("-i");
+						v.add("\""+f.getAbsolutePath()+"\"");
+						v.add("-p");
+						v.add(primer);
+						v.add("-c");
+						v.add(chr);
+						v.add("-r");
+						v.add(pc.getRefSeq(f).getAbsolutePath());
+						v.add("-P7");
 						String s = "-i \""+f.getAbsolutePath()+"\" "+primer+" "+chr+" -r "+refseq +" -P7";
-						System.out.println(s);
+						//System.out.println(s);
 					//}
 					//else {
 						//System.out.println("-i \""+f.getAbsolutePath()+"\" "+rb);
 					//}
 				//}
 						//if(f.getName().contains("LZ34-1-L_S5.sorted.bam")) {
-							SAMReader.main(s.split(" "));
+							SAMReader.main(v.toArray(new String[v.size()]));
 						//}
 			//}
 		}
@@ -85,7 +101,7 @@ public class OutputCommands {
 		else {
 			System.err.println("I do not know that ending "+part);
 		}
-		return "-p "+primer;
+		return primer;
 	}
 
 	private static ArrayList<File> searchSortedBam(File file) {
