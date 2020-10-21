@@ -5,11 +5,13 @@ import java.io.File;
 public class SamplePrimer {
 	private String sample, primer, chr;
 	private File ref;
-	public SamplePrimer(String sample, String primer, File ref, String chr) {
+	private boolean LB;
+	public SamplePrimer(String sample, String primer, File ref, String chr, boolean LB) {
 		this.sample = sample;
 		this.primer = primer;
 		this.ref = ref;
 		this.chr = chr;
+		this.LB = LB;
 	}
 	public static SamplePrimer parse(String line) {
 		String[] parts = line.split("\t");
@@ -17,7 +19,18 @@ public class SamplePrimer {
 		String primer = parts[1].replace("TCAGACGTGTGCTCTTCCGATCT", "");
 		File ref = new File(parts[2]);
 		String chr = parts[3];
-		return new SamplePrimer(sample, primer, ref, chr);
+		boolean LB = true;
+		if(parts[4].contentEquals("LB")) {
+			LB = true;
+		}
+		else if(parts[4].contentEquals("RB")) { 
+			LB = false;
+		}
+		else {
+			System.err.println("LB or RB should be filled in: "+line);
+			System.exit(0);
+		}
+		return new SamplePrimer(sample, primer, ref, chr, LB);
 	}
 	public boolean sampleNameMatches(String str) {
 		if(sample.contentEquals(str)) {
@@ -34,6 +47,9 @@ public class SamplePrimer {
 	}
 	public String getChr() {
 		return this.chr;
+	}
+	public boolean isLB() {
+		return this.LB;
 	}
 
 }

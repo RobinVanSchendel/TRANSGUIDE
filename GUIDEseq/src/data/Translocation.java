@@ -272,7 +272,7 @@ public class Translocation {
 		sb.append(getRealPosition()).append(s);
 		sb.append(realPositionCounter).append(s);
 		sb.append(getDistanceToLBRB()).append(s);
-		sb.append(isLBorRB()).append(s);
+		sb.append(options.isLB()? "LB":"RB").append(s);
 		sb.append(getIGVPos()).append(s);
 		sb.append(isForwardText()).append(s);
 		sb.append(getCigarString()).append(s);
@@ -284,7 +284,7 @@ public class Translocation {
 		sb.append(getHomology().length()).append(s);
 		sb.append(getFiller()).append(s);
 		sb.append(getFiller().length()).append(s);
-		//sb.append(getFillerIsTemplated(-100,100,5)).append(s);
+		sb.append(getFillerIsTemplated(-100,100,6)).append(s);
 		if(is!=null) {
 			sb.append(is.getLargestMatchString()).append(s);
 			sb.append(is.getSubS()).append(s);
@@ -416,14 +416,10 @@ public class Translocation {
 		return null;
 	}
 	private int getDistanceToLBRB() {
-		int disLB = this.getDistanceToLB();
-		int disRB = this.getDistanceToRB();
-		int disLBAbs = Math.abs(disLB);
-		int disRBAbs = Math.abs(disRB);
-		if(disLBAbs<disRBAbs) {
-			return disLB;
+		if(options.isLB()) {
+			return this.getDistanceToLB();
 		}
-		return disRB;
+		return this.getDistanceToRB();
 	}
 	
 	private int getDistanceToRB() {

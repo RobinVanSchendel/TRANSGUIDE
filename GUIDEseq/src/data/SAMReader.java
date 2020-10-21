@@ -1,5 +1,11 @@
 package data;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -7,6 +13,10 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+
+import htsjdk.samtools.SamReader;
+import htsjdk.samtools.SamReaderFactory;
+import htsjdk.samtools.ValidationStringency;
 
 public class SAMReader {
 	public static void main(String[] args) {
@@ -25,11 +35,72 @@ public class SAMReader {
 			System.exit(0);
 		}
 		MyOptions options = new MyOptions(cmd);
+		String dir = "E:\\NGS\\GUIDEseq_Exp5\\150bpPlasmidMapped\\";
+		boolean recursive = true;
+		ArrayList<File> files = OutputCommands.searchSortedBam(new File(dir), recursive);
+		PrimerController pc = new PrimerController(new File("Sample_Primer.txt"));
 		
-		//System.out.println(options.printParameters());
-        TranslocationController tc = new TranslocationController(options);
-        tc.testLBRB();
-        tc.launchAnalysis();
+		boolean allFound = true;
+		for(File f: files) {
+			System.out.println(f.getName());
+			SamplePrimer sp = pc.getSamplePrimer(f);
+			if(sp==null) {
+				allFound = false;
+				System.err.println(f.getAbsolutePath()+ " does not have an entry");
+			}
+		}
+		if(!allFound) {
+			System.exit(0);
+		}
+		
+		File out = new File("out.txt");
+		int nr = 0;
+		for(File f: files) {
+			SamplePrimer sp = pc.getSamplePrimer(f);
+			if(sp==null) {
+				System.err.println(f.getAbsolutePath()+ " does not have an entry");
+			}
+			String primer = sp.getPrimer();
+			String chr = sp.getChr();
+			File ref = sp.getRef();
+			options.setLB(sp.isLB());
+			options.setRef(ref);
+			options.setPrimer(primer);
+			options.setFile(f);
+			options.setChr(chr);
+			
+			BufferedWriter bw = null;
+			if(nr==0) {
+				try {
+					bw = new BufferedWriter(new FileWriter(out,false));
+					bw.write(Translocation.getHeader()+"\n");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			else {
+				try {
+					bw = new BufferedWriter(new FileWriter(out,true));
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			//System.out.println(options.printParameters());
+	        TranslocationController tc = new TranslocationController(options);
+	        tc.testLBRB();
+	        tc.launchAnalysis(bw);
+	        try {
+				bw.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	        nr++;
+		}
+		System.out.println("Output written to: "+out.getAbsolutePath());
     }
 
 	private static Options createOptions() {

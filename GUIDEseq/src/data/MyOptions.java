@@ -12,12 +12,20 @@ private int RBpos = -1;
 private int LBpos = -1;
 private boolean LBisForward;
 private boolean RBisForward;
+private boolean isLB;
+private File ref;
+private String primer;
+private File bam;
+private String chr;
 	
 	public MyOptions(CommandLine cmd) {
 		this.cmd = cmd;
 	}
 
 	public File getBam() {
+		if(bam!=null) {
+			return bam;
+		}
 		String fileName = cmd.getOptionValue("input");
 		File f = new File(fileName);
 		if(!f.exists()) {
@@ -28,6 +36,9 @@ private boolean RBisForward;
 	}
 
 	public File getRefFile() {
+		if(this.ref!=null) {
+			return ref;
+		}
 		String fileName = cmd.getOptionValue("reference");
 		File f = new File(fileName);
 		if(!f.exists()) {
@@ -37,6 +48,9 @@ private boolean RBisForward;
 		return f;
 	}
 	public String getChr() {
+		if(this.chr!=null) {
+			return chr;
+		}
 		return cmd.getOptionValue("chr");
 	}
 	public boolean isFirstOfPairFlag() {
@@ -52,10 +66,16 @@ private boolean RBisForward;
 	}
 
 	public String getPrimer() {
+		if(primer!=null) {
+			return primer.toUpperCase();
+		}
 		return cmd.getOptionValue("primer").toUpperCase();
 	}
 	public String getPrimerPart(int number) {
 		String primer =  cmd.getOptionValue("primer").toUpperCase();
+		if(this.primer!=null) {
+			primer = this.primer.toUpperCase();
+		}
 		if(primer.length()>number) {
 			return primer.substring(0, number);
 		}
@@ -140,5 +160,29 @@ private boolean RBisForward;
 
 	public static int getMaxMismatches() {
 		return 1;
+	}
+
+	public void setLB(boolean lb) {
+		this.isLB = lb;
+	}
+	public boolean isLB() {
+		return this.isLB;
+	}
+
+	public void setRef(File ref) {
+		this.ref = ref;
+	}
+
+	public void setPrimer(String primer) {
+		this.primer = primer;
+	}
+
+	public void setFile(File f) {
+		this.bam = f;
+		
+	}
+
+	public void setChr(String chr) {
+		this.chr = chr;
 	}
 }

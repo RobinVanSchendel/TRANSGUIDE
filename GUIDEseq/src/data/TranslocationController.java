@@ -120,13 +120,12 @@ public class TranslocationController {
 		return null;
 	}
 
-	public void printContents(long minSupport) {
+	public void printContents(BufferedWriter bw, long minSupport) {
 		//sorting doesn't work at the moment
 		//trans.sort(comparing(Translocation::getNrSupportingReads, Collections.reverseOrder()));
-		System.out.println("File\t"+Translocation.getHeader());
+		//System.out.println("File\t"+Translocation.getHeader());
 		try {
-			BufferedWriter writer = new BufferedWriter(new FileWriter(options.getOutput()));
-			writer.write("File\t"+Translocation.getHeader()+"\n");
+			int counter = 0;
 			for(String key: trans.keySet()){
 				for(Translocation tl: trans.get(key)) {
 					if(tl.getTranslocationSequence().contentEquals("TTGAGCTTGGATCAGATTGTCGTTTCCCGCCTTCAGTTTAAACTATCAGTGTTTGAACAAATAACACATTGTGGTGTTTAATGAATCGTGGTGGGATATATTGGCTAGAGCAGCTTGAGCTTGAAATGGAAAGGAGTGAAGAGTAAAGAAG")) {
@@ -136,12 +135,12 @@ public class TranslocationController {
 					}
 					if(tl.getNrSupportingReads()>=minSupport) {
 						String output = tl.toString();
-						System.out.println(options.getBam().getName()+"\t"+output);
-						writer.write(options.getBam()+"\t"+output+"\n");
+						bw.write(options.getBam().getName()+"\t"+output+"\n");
+						counter++;
 					}
 				}
 			}
-			writer.close();
+			System.out.println("Written "+counter+" events with >= "+minSupport+" support");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -190,7 +189,7 @@ public class TranslocationController {
 		}
 	}
 
-	public void launchAnalysis() {
+	public void launchAnalysis(BufferedWriter bw) {
 		SamReader sr = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(options.getBam());
 		//SamReader sr2 = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(options.getBam());
 		if(!sr.hasIndex()) {
@@ -353,7 +352,7 @@ public class TranslocationController {
         System.out.println("Adding refGenomeParts");
         addRefGenomePart(rsf);
         System.out.println("Added refGenomeParts");
-        printContents(options.getMinSupport());
+        printContents(bw, options.getMinSupport());
         try {
 			sr.close();
 		} catch (IOException e) {

@@ -7,3 +7,11 @@ LZ62-1-L_S79.sorted.bam	TCAGACGTGTGCTCTTCCGATCTGATAATTCAATTCGGCGTTA	E:\NGS\GUIDE
 LZ62-1-R_S96.sorted.bam	TCAGACGTGTGCTCTTCCGATCTCTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	RB
 LZ64-1-L_S283.sorted.bam	TCAGACGTGTGCTCTTCCGATCTGATAATTCAATTCGGCGTTA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB
 LZ64-1-R_S300.sorted.bam	TCAGACGTGTGCTCTTCCGATCTCTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	RB
+LZ30-1-L_S1.sorted.bam	GATAATTCAATTCGGCGTTA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB
+LZ30-1-R_S2.sorted.bam	CTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	RB
+LZ31-3-L_S3.sorted.bam	GATAATTCAATTCGGCGTTA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB
+LZ31-3-R_S4.sorted.bam	CTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	RB
+LZ34-1-L_S5.sorted.bam	GATAATTCAATTCGGCGTTA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB
+LZ34-2-R_S6.sorted.bam	CTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	RB
+LZ35-1-L_S151.sorted.bam	GATAATTCAATTCGGCGTTA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB
+LZ35-1-R_S168.sorted.bam	CTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	RB

@@ -55,5 +55,13 @@ public class PrimerController {
 		}
 		return null;
 	}
+	public boolean isLB(File f) {
+		SamplePrimer sp = getSamplePrimer(f);
+		if(sp!=null) {
+			return sp.isLB();
+		}
+		System.err.println("cannot find file "+f.getAbsolutePath());
+		return false;
+	}
 
 }

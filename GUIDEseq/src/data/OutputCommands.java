@@ -13,7 +13,7 @@ public class OutputCommands {
 		//String refseq = "E:\\NGS\\GUIDEseq\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_plus_pCAMBIA2201.fa";
 		String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa";
 		//String refseq = "E:\\NGS\\GUIDEseq_Exp2\\RefSeq\\Arabidopsis_thaliana.TAIR10.28_pUBC_tdna.dna.genome.fa";
-		ArrayList<File> files = searchSortedBam(new File(dir));
+		ArrayList<File> files = searchSortedBam(new File(dir), false);
 		PrimerController pc = new PrimerController(new File("Sample_Primer.txt"));
 		//String chr= "pUBC-YFP-Dest";
 		//String chr= "-c pUBC_tDNA_part";
@@ -26,6 +26,7 @@ public class OutputCommands {
 					//String primer = getPrimer(f);
 					String primer = pc.getPrimer(f);
 					String chr = pc.getChr(f);
+					File ref = pc.getRefSeq(f);
 					//if(f.getName().startsWith("LB")) {
 						Vector<String> v = new Vector<String>();
 						v.add("-i");
@@ -35,7 +36,7 @@ public class OutputCommands {
 						v.add("-c");
 						v.add(chr);
 						v.add("-r");
-						v.add(pc.getRefSeq(f).getAbsolutePath());
+						v.add(ref.getAbsolutePath());
 						v.add("-P7");
 						String s = "-i \""+f.getAbsolutePath()+"\" "+primer+" "+chr+" -r "+refseq +" -P7";
 						//System.out.println(s);
@@ -104,13 +105,16 @@ public class OutputCommands {
 		return primer;
 	}
 
-	private static ArrayList<File> searchSortedBam(File file) {
+	public static ArrayList<File> searchSortedBam(File file, boolean recursive) {
 		ArrayList<File> files = new ArrayList<File>();
 		if(file.isDirectory()) {
 			for(File f: file.listFiles()) {
-				if(f.getAbsolutePath().endsWith(".sorted.bam")) {
-					files.add(f);
-				}
+				files.addAll(searchSortedBam(f, recursive));
+			}
+		}
+		else if(file.isFile()) {
+			if(file.getAbsolutePath().endsWith(".sorted.bam")) {
+				files.add(file);
 			}
 		}
 		return files;
