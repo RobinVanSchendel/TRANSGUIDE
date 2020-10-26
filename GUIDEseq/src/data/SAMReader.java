@@ -35,7 +35,7 @@ public class SAMReader {
 			System.exit(0);
 		}
 		MyOptions options = new MyOptions(cmd);
-		String dir = "E:\\NGS\\GUIDEseq_Exp5\\300bpPlasmidMapped\\LZ30-1-L_S1.sorted.bam";
+		String dir = "E:\\NGS\\GUIDEseq_Exp5\\300bpPlasmidMapped\\LZ31-3-L_S3.sorted.bam";
 		boolean recursive = true;
 		ArrayList<File> files = OutputCommands.searchSortedBam(new File(dir), recursive);
 		PrimerController pc = new PrimerController(new File("Sample_Primer.txt"));

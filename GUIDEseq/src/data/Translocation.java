@@ -983,31 +983,44 @@ public class Translocation {
 		if(debug) {
 			System.out.println("getTranslocationSequence".toUpperCase());
 		}
+		if(debug) {
+			for(SAMRecord s:sams) {
+				//System.out.println(s.getReadName()+"\t"+s.getFirstOfPairFlag()+"\t"+s.getCigarString());
+			}
+		}
 		for(SAMRecord s:sams) {
 			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
 				if(s.getReadString().startsWith(options.getPrimer())) {
 					seqs.add(s.getReadString());
+					if(debug) {
+						System.out.println("\t"+s.getReadString());
+						System.out.println("\t"+s.getContig());
+						System.out.println("\t"+s.getCigarString());
+						System.out.println("\t"+s.getReadName());
+					}
 				}
-				//coming from RC, so not from read on the T-DNA, so we need to trim it a bit for safety
-				//200 is a bit arbitrary
+				//coming from RC
 				else {
 					if(s.getReadString().endsWith(Utils.reverseComplement(options.getPrimer()))) {
 						String seq = Utils.reverseComplement(s.getReadString());
-						seq = seq.substring(0, Math.min(seq.length(), 200));
 						seqs.add(seq);
+						if(debug) {
+							System.out.println("\t"+seq);
+							System.out.println("\t"+s.getContig());
+						}
 					}
 				}
 				
 				if(debug) {
-					System.out.println(s.getReadString());
-					System.out.println(s.getFirstOfPairFlag());
-					System.out.println(s.getContig());
-					System.out.println(s.getCigarString());
-					System.out.println(s.getReadString().startsWith(options.getPrimer()));
+					//System.out.println(s.getReadString());
+					//System.out.println(s.getFirstOfPairFlag());
+					//System.out.println(s.getContig());
+					//System.out.println(s.getCigarString());
+					//System.out.println(s.getReadString().startsWith(options.getPrimer()));
 				}
 			}
 			if(debug) {
-				//System.out.println(s.getReadString());
+				//System.out.println("HIER!\t"+s.getReadString());
 				//System.out.println(s.getCigarString());
 				//System.out.println(!s.isSecondaryAlignment());
 			}
