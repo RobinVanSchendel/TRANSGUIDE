@@ -174,7 +174,10 @@ public class TranslocationController {
 				if(count%1000==0) {
 					System.out.println("Already processed "+count+" mates "+trans.get(key).size() + " from chr "+key);
 				}
+				//System.out.println(tl.getReads());
 			}
+			
+			
 		}
 		System.out.println("Found "+duplicates+" duplicate mates (should be >0)");
 	}
@@ -260,7 +263,14 @@ public class TranslocationController {
                 		//System.err.println(srec.getReadString());
                 	}
         			String cigar = srec.getCigarString();
+        			boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
+        			//System.out.println("BEFORE RC "+srec.getReadNegativeStrandFlag());
         			srec.reverseComplement();
+        			if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
+        				srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
+        			}
+        			//System.out.println("AFTER RC "+srec.getReadNegativeStrandFlag());
+        			//System.exit(0);
         			//bug so reverse it myself
         			Cigar tempCigar = srec.getCigar();
         			if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
@@ -283,10 +293,13 @@ public class TranslocationController {
 		       			if(debug) {
 	                		//System.err.println("Still here primer part is ok");
 	                	}
-		       			//System.out.println("starts correct");
+		       			//System.out.println("starts correct "+srec.getReadNegativeStrandFlag() );
+		       			//System.out.println(positiveStrand);
+		       			//System.out.println(srec.getDuplicateReadFlag());
+		       			//System.out.println(srec.getFirstOfPairFlag() == options.isFirstOfPairFlag());
 		       			//no duplicates
 		       			
-		       			if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == options.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag() == positiveStrand) {
+		       			if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == options.isFirstOfPairFlag()) {// && srec.getReadNegativeStrandFlag() == positiveStrand) {
 		       				//System.out.println("adding");
 		       				if(debug) {
 		       					
@@ -361,9 +374,9 @@ public class TranslocationController {
 		}
         if(debug) {
         	String debugChr = "5";
-        	int startDebug = 24099423-5000;
+        	int startDebug = 875564-5000;
     		int endDebug = startDebug+10000;
-    		boolean forward = false;
+    		boolean forward = true;
     		Translocation tl = searchTranslocation(debugChr,startDebug, endDebug, forward);
     		if(tl!=null) {
     			System.out.println("DEBUG FROM HIER!");
