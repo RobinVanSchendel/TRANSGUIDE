@@ -78,6 +78,9 @@ public class Translocation {
 				//System.out.println("Still here first "+sam.getReadName() + " "+Translocation.getNMis0(sam) +" "+ sam.getAttribute("NM"));
 				//no mismatches
 				int matchNucleotides = Translocation.getMatchLength(sam, ANCHORLENGTH);
+				//System.out.println(this.getPosition());
+				//System.out.println(matchNucleotides+" "+sam.getMappingQuality());
+				//System.out.println(sam.getCigarString());
 				if(newWay && sam.getMappingQuality()>50 && matchNucleotides>=ANCHORLENGTH) {
 					count++;
 				}
@@ -428,11 +431,11 @@ public class Translocation {
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
 			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(options.getChr())) {
-				if(!options.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
+				if(!options.getTDNARBisForward() && sam.getReadNegativeStrandFlag()) {
 					int distance = sam.getAlignmentEnd()-RBPos;
 					posA.add(distance);
 				}
-				else if(options.getTDNARBisForward() && sam.getReadNegativeStrandFlag()) {
+				else if(options.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
 					int distance = RBPos-sam.getAlignmentStart();
 					posA.add(distance);
 				}
@@ -673,17 +676,31 @@ public class Translocation {
 					if(debug) {
 						System.out.println("SEQ1\t"+srec.getReadString().substring(ce.getLength()));
 					}
-					seqs.add(srec.getReadString().substring(ce.getLength()));
+					String part = srec.getReadString().substring(ce.getLength());
+					int end = 150;
+					//System.out.println(srec.getCigarString());
+					if(end>part.length()) {
+						end = part.length();
+					}
+					part = part.substring(0, end);
+					seqs.add(part);
 				}
 				//M, so the S part follows
 				else {
+					CigarElement ce2 = srec.getCigar().getCigarElement(1);
 					//reverse complement
 					String seqPart = srec.getReadString().substring(0, ce.getLength());
 					if(debug) {
 						System.out.println("seqPart\t"+seqPart);
 						System.out.println("SEQ2\t"+Utils.reverseComplement(seqPart));
 					}
-					seqs.add(Utils.reverseComplement(seqPart));
+					int end = 150;
+					String part = Utils.reverseComplement(seqPart);
+					if(end>part.length()) {
+						end = part.length();
+					}
+					part  = part.substring(0, end);
+					seqs.add(part);
 				}
 				if(debug) {
 					System.out.println(" adding "+srec.getContig());
@@ -703,7 +720,7 @@ public class Translocation {
 			}
 		}
 		if(debug) {
-			System.out.println("size genomic "+seqs.size());
+			System.out.println("size genomic "+seqs.size() +" number of sam records "+sams.size());
 			for(String s: seqs) {
 				System.out.println("\t\t"+s);
 			}
@@ -712,12 +729,23 @@ public class Translocation {
 		//5 is an arbitrary number
 		if(seqs.size()>=5) {
 			String seq = consensusString(seqs);
+			//System.out.println("CONSENSUS");
+			//System.out.println(seq);
+			//System.out.println("CONSENSUS");
 			return seq;
 		}
 		
 		//some location have only the second read mapping to the genome
 		int maxGenomeSizePart = 50;
 		for(SAMRecord srec: sams) {
+			if(debug) {
+				System.out.println("SAMRecord Iteration");
+				System.out.println(srec.getCigarString());
+				System.out.println(!srec.isSecondaryAlignment());
+				System.out.println(srec.getFirstOfPairFlag() != options.isFirstOfPairFlag());
+				System.out.println(srec.getContig());
+				System.out.println(srec.getFirstOfPairFlag());
+			}
 			if(!srec.isSecondaryAlignment() && srec.getFirstOfPairFlag() != options.isFirstOfPairFlag()
 					&& cigarStringFollowsMSH(srec.getCigarString()) 
 					&& !srec.getContig().equals(options.getChr())) {
@@ -952,28 +980,54 @@ public class Translocation {
 		//String consensus = getCigarString();
 		
 		ArrayList<String> seqs = new ArrayList<>();
+		if(debug) {
+			System.out.println("getTranslocationSequence".toUpperCase());
+		}
 		for(SAMRecord s:sams) {
 			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
-				seqs.add(s.getReadString());
+				if(s.getReadString().startsWith(options.getPrimer())) {
+					seqs.add(s.getReadString());
+				}
+				//coming from RC, so not from read on the T-DNA, so we need to trim it a bit for safety
+				//200 is a bit arbitrary
+				else {
+					if(s.getReadString().endsWith(Utils.reverseComplement(options.getPrimer()))) {
+						String seq = Utils.reverseComplement(s.getReadString());
+						seq = seq.substring(0, Math.min(seq.length(), 200));
+						seqs.add(seq);
+					}
+				}
+				
+				if(debug) {
+					System.out.println(s.getReadString());
+					System.out.println(s.getFirstOfPairFlag());
+					System.out.println(s.getContig());
+					System.out.println(s.getCigarString());
+					System.out.println(s.getReadString().startsWith(options.getPrimer()));
+				}
 			}
+			if(debug) {
+				//System.out.println(s.getReadString());
+				//System.out.println(s.getCigarString());
+				//System.out.println(!s.isSecondaryAlignment());
+			}
+		}
+		if(debug) {
+			for(String s: seqs) {
+				System.out.println("\t"+s.length()+"\t"+s);
+			}
+			System.out.println("currently have: "+seqs.size());
 		}
 		if(seqs.size()>0) {
 			String seq = consensusString(seqs);
-			//check if we need the reverse complement
-			for(SAMRecord s: sams) {
-				if(s.getReadString().startsWith(seq) && s.getFirstOfPairFlag() == options.isFirstOfPairFlag()) {
-					//only take the revComplement if s is on the reverse strand
-					if(!s.getContig().equals(options.getChr()) && s.getReadNegativeStrandFlag()) {
-						SAMRecord srev = s.deepCopy();
-						srev.reverseComplement();
-						return srev.getReadString();
-					}
-					else {
-						return seq; 
-					}
-					
-				}
+			if(debug) {
+				System.out.println("CONSEN\t"+seq);
 			}
+			//only sequences with primer included are now added, so simply return
+			return seq;
+		}
+		if(debug) {
+			System.out.println("END OF getTranslocationSequence".toUpperCase());
 		}
 		return NOTRANSLOCATION;
 	}
@@ -1153,6 +1207,7 @@ public class Translocation {
 				}
 			}
 			*/
+			//System.out.println("Mismatches: "+tag);
 			return tag <= MyOptions.getMaxMismatches();
 			//return tag == 0;
 		}
@@ -1220,7 +1275,7 @@ public class Translocation {
 					addWarning("Ref sequence has "+getMismatches+" mismatches with genomic sequence");
 				}
 				else {
-					this.addError("Ref sequence deviates from sequence in reads");
+					this.addError("Ref sequence deviates from sequence in reads "+getMismatches+" mismatches");
 				}
 			}
 		}
@@ -1246,8 +1301,75 @@ public class Translocation {
 		System.out.println(this.getTDNASequence(true));
 		System.out.println("GENOMIC SEQ:");
 		System.out.println(this.getGenomicSequence(true));
+		System.out.println("getMinimalJunction:");
 		System.out.println(getMinimalJunction(true));
 		System.out.println(getRealPosition(true));
 		
+	}
+	/**Debug method
+	 * 
+	 */
+	public String getReads() {
+		StringBuffer sb = new StringBuffer();
+		sb.append(this.getRealPosition());
+		sb.append("\t"+options.getPrimer());
+		
+		sb.append("\n\t");
+		
+		Assembler a = new Assembler();
+		for(SAMRecord sr: sams) {
+			boolean startWithPrimer = sr.getReadString().startsWith(options.getPrimer());
+			//take rc now
+			boolean takeRC = false;
+			if(!sr.getContig().contentEquals(options.getChr()) && sr.getReadNegativeStrandFlag()!=true 
+					&& sr.getFirstOfPairFlag()!=options.isFirstOfPairFlag()) {
+				takeRC = true;
+			}
+			else if(!sr.getContig().contentEquals(options.getChr()) && sr.getReadNegativeStrandFlag()==true 
+					&& sr.getFirstOfPairFlag()==options.isFirstOfPairFlag()) {
+				takeRC = true;
+			}
+			if(takeRC) {
+				SAMRecord srec = sr.deepCopy();
+				String cigar = srec.getCigarString();
+				srec.reverseComplement();
+				//bug so reverse it myself
+				Cigar tempCigar = srec.getCigar();
+				if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
+					Cigar rev = new Cigar();
+					//reverse the cigar
+					for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
+						rev.add(tempCigar.getCigarElement(i));
+					}
+					srec.setCigar(rev);
+				}
+				sr = srec;
+			}
+			sb.append(sr.getReadString());
+			sb.append("\t"+startWithPrimer);
+			sb.append("\t"+sr.getCigarString());
+			sb.append("\t"+sr.getFirstOfPairFlag());
+			sb.append("\t"+sr.getContig());
+			sb.append("\t"+sr.getReadNegativeStrandFlag());
+			sb.append("\t"+sr.getAlignmentStart()+"-"+sr.getAlignmentEnd());
+			sb.append("\t"+takeRC);
+			sb.append("\t"+sr.getReadName());
+			sb.append("\n\t");
+			a.addFragment(new Fragment(sr.getReadString()));
+		}
+		sb.append(this.toString());
+		//System.out.println("BEFORE ASSEMBLY1");
+		//System.out.println(a.toString());
+		//System.out.println("BEFORE ASSEMBLY2");
+		a.assembleAll();
+		if(a.getFragments().size()>1) {
+			//System.out.println("ASSEMBLY>1");
+		}
+		//System.out.println(a.toString());
+		//System.out.println("AFTER ASSEMBLY");
+		//System.out.println(this.getTranslocationSequence(true));
+		
+		
+		return sb.toString();
 	}
 }
