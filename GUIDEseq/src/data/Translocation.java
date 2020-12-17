@@ -129,6 +129,14 @@ public class Translocation {
 	public int getNrSupportingReads() {
 		return sams.size();
 	}
+	/**normal way to get the number of anchor
+	 * 
+	 * @param addPartial
+	 * @return
+	 */
+	public int getNrAnchors(boolean addPartial) {
+		return getNrAnchors(addPartial, ANCHORLENGTH);
+	}
 	/**An anchor is defined as the read which does not contain the initial integration
 	 * read. In our T-DNA experiments P7 is the T-DNA read.
 	 * 
@@ -139,7 +147,7 @@ public class Translocation {
 	 * 
 	 * @return
 	 */
-	public int getNrAnchors(boolean addPartial) {
+	public int getNrAnchors(boolean addPartial, int anchorLength) {
 		int count = 0;
 		for(SAMRecord sam: sams) {
 			if(!sam.getContig().contentEquals(sp.getChr())) {
@@ -151,14 +159,19 @@ public class Translocation {
 					//System.out.println(this.getPosition());
 					//System.out.println(matchNucleotides+" "+sam.getMappingQuality());
 					//System.out.println(sam.getCigarString());
-					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=ANCHORLENGTH) {
+					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=anchorLength) {
+						if(this.getIGVPos().contentEquals("4:5085682") && anchorLength==150) {
+							System.out.println(sam.toString());
+							System.out.println(sam.getDuplicateReadFlag()); 
+						}
+						
 						count++;
 					}
 				}
 				//only if not counted already
 				else if(addPartial) {
 					int matchNucleotides = Translocation.getMatchLength(sam);
-					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=ANCHORLENGTH) {
+					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=anchorLength) {
 						count++;
 					}
 				}
@@ -210,6 +223,7 @@ public class Translocation {
 		sb.append("multipleEvents").append(s);
 		sb.append("umis").append(s);
 		sb.append("tailSize").append(s);
+		sb.append("NrTailAnchors").append(s);
 		sb.append("NrSupportingReads").append(s);
 		sb.append("NrAnchors").append(s);
 		sb.append("NrAnchorsIncludingPartial").append(s);
@@ -261,7 +275,7 @@ public class Translocation {
 		sb.append("warning").append(s);
 		sb.append("isOK").append(s);
 		sb.append("getTDNASequenceDiffReads").append(s);
-		sb.append("getTDNASequenceDiffReadsHighestContributor").append(s);
+		sb.append("getTDNASequenceDiffReadsHighestContributor");
 		
 		return sb.toString();
 	}
@@ -274,6 +288,7 @@ public class Translocation {
 		sb.append(this.multipleEvents).append(s);
 		sb.append(this.getBarcodes()).append(s);
 		sb.append(getTailSize()).append(s);
+		sb.append(getTailAnchors()).append(s);
 		sb.append(getNrSupportingReads()).append(s);
 		sb.append(getNrAnchors(false)).append(s);
 		sb.append(getNrAnchors(true)).append(s);
@@ -342,15 +357,15 @@ public class Translocation {
 		sb.append(warning).append(s);
 		sb.append(isOK()).append(s);
 		sb.append(getTDNASequenceDiffReads()).append(s);
-		sb.append(getTDNASequenceDiffReadsHighestContributor()).append(s);
-		sb.append(getFillerSequenceDiffReads()).append(s);
+		sb.append(getTDNASequenceDiffReadsHighestContributor());
+		//sb.append(getFillerSequenceDiffReads());
 		//sb.append(getFillerSequenceDiffReadsHighestContributor()).append(s);
 		
 		//sb.append("\n");
 
-		for(SAMRecord sam: sams) {
+		//for(SAMRecord sam: sams) {
 			//sb.append("\t"+sam.getSAMString());
-		}
+		//}
 		
 		String ret = sb.toString();
 		//long end = System.currentTimeMillis();
@@ -383,6 +398,10 @@ public class Translocation {
 			}
 		}
 		return distance;
+	}
+	private int getTailAnchors() {
+		int sizeOfTailAnchors = 150;
+		return getNrAnchors(false,sizeOfTailAnchors);
 	}
 	private String getBarcodes() {
 		HashMap<String, Integer> bc = new HashMap<String, Integer>();
