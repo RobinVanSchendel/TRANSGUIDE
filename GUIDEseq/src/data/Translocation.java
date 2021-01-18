@@ -569,6 +569,10 @@ public class Translocation {
 	    if(startPos<0) {
 	    	startPos = 0;
 	    }
+	    //another safety
+	    if(endPos>=rs.getBaseString().length()) {
+	    	endPos = rs.getBaseString().length();
+	    }
 	    String part = rs.getBaseString().substring(startPos,endPos);
 	    if(this.isForward()) {
 	    	part = Utils.reverseComplement(part);
