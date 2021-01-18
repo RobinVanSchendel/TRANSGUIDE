@@ -630,7 +630,7 @@ public class Translocation {
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
 			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(sp.getChr())) {
-				if(!sp.getTDNARBisForward() && sam.getReadNegativeStrandFlag()) {
+				if(!sp.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
 					int distance = sam.getAlignmentEnd()-RBPos;
 					posA.add(distance);
 				}
@@ -884,7 +884,7 @@ public class Translocation {
 					int distance = sam.getAlignmentEnd()-LBPos;
 					posA.add(distance);
 				}
-				else if(!sp.getTDNALBisForward() && sam.getReadNegativeStrandFlag()) {
+				else if(!sp.getTDNALBisForward() && !sam.getReadNegativeStrandFlag()) {
 					int distance = LBPos-sam.getAlignmentStart();
 					posA.add(distance);
 				}
