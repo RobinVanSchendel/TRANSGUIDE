@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 
 import htsjdk.samtools.*;
 import htsjdk.samtools.reference.ReferenceSequence;
@@ -19,25 +20,29 @@ import java.io.PrintWriter;
 
 public class TranslocationController {
 	private HashMap<String, ArrayList<Translocation>> trans = new HashMap<String, ArrayList<Translocation>>();
-	private MyOptions options;
 	public static final int MAXDIST = 500;
 	private int primerStart, primerEnd;
 	public static final String LB = "GTTTACACCACAATATATCCTGCCA";
 	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA";
+	private SamplePrimer sp;
+	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
+	boolean debug = true;
 	
-	public TranslocationController(MyOptions options) {
-		this.options = options;
+	public TranslocationController(SamplePrimer sp) {
+		this.sp = sp;
 	}
 
-	public Translocation addTranslocation(SAMRecord s) {
+	public Translocation addTranslocation(SAMRecord s, int maxReads) {
 		Translocation nearest = getNearestTranslocation(s);
-		int pos = Translocation.getPosition(s, options);
+//		int pos = Translocation.getPosition(s, options);
 		if(nearest !=null) {
-			nearest.addSam(s);
+			if(nearest.getSams().size()<maxReads) {
+				nearest.addSam(s);
+			}
 			return nearest;
 		}
 		else {
-			Translocation tl = new Translocation(s, options);
+			Translocation tl = new Translocation(s, sp);
 			//sometimes the sam is not added due to filtering of secondary alignments
 			if(tl.getNrSupportingReads()>0) {
 				ArrayList<Translocation> al = trans.get(s.getMateReferenceName());
@@ -56,7 +61,7 @@ public class TranslocationController {
 	}
 
 	private Translocation getNearestTranslocation(SAMRecord s) {
-		int pos = Translocation.getPosition(s, options);
+		int pos = Translocation.getPosition(s, sp);
 		Translocation nearest = null;
 		int minDis = Integer.MAX_VALUE;
 		if(trans.get(s.getMateReferenceName()) == null) {
@@ -127,18 +132,17 @@ public class TranslocationController {
 		try {
 			int counter = 0;
 			for(String key: trans.keySet()){
+				int printNr = 0;
 				for(Translocation tl: trans.get(key)) {
-					if(tl.getTranslocationSequence().contentEquals("TTGAGCTTGGATCAGATTGTCGTTTCCCGCCTTCAGTTTAAACTATCAGTGTTTGAACAAATAACACATTGTGGTGTTTAATGAATCGTGGTGGGATATATTGGCTAGAGCAGCTTGAGCTTGAAATGGAAAGGAGTGAAGAGTAAAGAAG")) {
-						//tl.printDebug();
-						//System.out.println("hier!");
-						//System.exit(0);
-					}
-					if(tl.getNrSupportingReads()>=minSupport) {
-						String output = tl.toString();
-						bw.write(options.getBam().getName()+"\t"+output+"\n");
+					if(tl.getNrAnchors(false)>=minSupport) {
+						//String output = null;
+						String output = tl.toString(debug);
+						bw.write(sp.getSampleString()+"\t"+output+"\n");
 						counter++;
+						printNr++;
 					}
 				}
+				System.out.println("Written "+printNr+" : "+trans.get(key).size()+" events with >= "+minSupport+" support "+sp.getSample());
 			}
 			System.out.println("Written "+counter+" events with >= "+minSupport+" support");
 		} catch (IOException e) {
@@ -157,16 +161,56 @@ public class TranslocationController {
 				//System.out.println(tl.getContigMate());
 				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition()-around, tl.getPosition()+around, false);
 				int counter2 = 0;
+				//System.out.println(tl.getContigMate()+":"+tl.getPosition());
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					//System.out.println(srec.getReadName());
-					if(!srec.getDuplicateReadFlag() && tl.containsRecord(srec.getReadName())) {
-						//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
-						//System.out.println("adding "+srec.getReadName());
-						boolean added = tl.addSam(srec);
+					if(srec.getReadName().contentEquals("A00379:349:HM7WFDSXY:4:1108:19723:23062")) {
+						System.err.println("found it"+srec.getReadName()+" "+srec.getReadLength());
 					}
-					if(srec.getDuplicateReadFlag()) {
-						duplicates++;
+					if(srec.getContig()!=null) {
+						if(srec.getReadName().contentEquals("A00379:349:HM7WFDSXY:4:1108:19723:23062")) {
+							System.err.println("found it still here"+srec.getReadName()+" "+srec.getCigarString());
+							System.err.println("found it still here"+srec.getReadName()+" "+isDuplicate(srec));
+							System.err.println("found it still here"+srec.getReadName()+" "+tl.containsRecord(srec.getReadName()));
+							
+							
+						}
+						//if first read is in, why remove the second if it is duplicate?
+						if(tl.containsRecord(srec.getReadName())) {
+						//if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
+							//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
+							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
+							if(srec.getReadName().contentEquals("A00379:349:HM7WFDSXY:4:1108:19723:23062")) {
+								System.err.println("found it adding"+srec.getReadName()+" "+srec.getReadLength());
+							}
+							boolean added = tl.addSam(srec);
+						}
+						//not sure if I want these
+						/*
+						else if(!isDuplicate(srec)) {
+							if(tl.isForward()) {
+								if(srec.getFirstOfPairFlag()!= sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag()) {
+									tl.addSam(srec);
+								}
+								else if(srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag() && srec.getReadNegativeStrandFlag()) {
+									tl.addSam(srec);
+								}
+							}
+							else {
+								if(srec.getFirstOfPairFlag()!= sp.isFirstOfPairFlag() && srec.getReadNegativeStrandFlag()) {
+									tl.addSam(srec);
+								}
+								else if(srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag()) {
+									tl.addSam(srec);
+								}
+								
+							}
+						}
+						*/
+						if(isDuplicate(srec)) {
+							duplicates++;
+						}
 					}
 					//System.out.println(counter2);
 				}
@@ -182,6 +226,16 @@ public class TranslocationController {
 		System.out.println("Found "+duplicates+" duplicate mates (should be >0)");
 	}
 
+	private boolean isDuplicate(SAMRecord srec) {
+		//if it has an UMI, that is already taken care of
+		//disabled this as it does not seem to work
+		//if(sp.hasUMI()) {
+		//	return false;
+		//}
+		return srec.getDuplicateReadFlag();
+		
+	}
+
 	public void addRefGenomePart(ReferenceSequenceFile rsf) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
@@ -192,16 +246,21 @@ public class TranslocationController {
 		}
 	}
 
-	public void launchAnalysis(BufferedWriter bw) {
-		SamReader sr = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(options.getBam());
-		//SamReader sr2 = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(options.getBam());
+	public void launchAnalysis(int maxTrans, int maxReadsPerTrans, int maxReads) {
+		if(maxTrans>=0) {
+			System.err.println("Warning: program will stop after finding "+maxTrans+" translocations");		}
+		if(maxReads>=0) {
+			System.err.println("Warning: program will stop after "+maxReads+" reads");		
+		}
+		SamReader sr = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(sp.getFile());
+		SamReader sr2 = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(sp.getFile());
 		if(!sr.hasIndex()) {
-			System.out.println("no index available for this bam file. Please run samtools index "+options.getBam());
+			System.out.println("no index available for this bam file. Please run samtools index "+sp.getFile());
 			System.exit(0);
 		}
-	    ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(options.getRefFile());
+	    ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //SAMRecordIterator r = sr.iterator();
-	    String chr = options.getChr();
+	    String chr = sp.getChr();
 	    ReferenceSequence rs = rsf.getSequence(chr);
 	    if(rs == null) {
 	    	System.err.println("Chromosome "+chr+" is not part of the reference genome");
@@ -211,12 +270,12 @@ public class TranslocationController {
 	    	//System.out.println("Chromosome "+chr+" was found");
 	    }
 	    String seq = rs.getBaseString().toUpperCase();
-	    int index = seq.indexOf(options.getPrimer());
+	    int index = seq.indexOf(sp.getPrimer());
 	    int start = -1;
 	    int end = -1;
 	    boolean positiveStrand = true;
 	    if(index == -1) {
-	    	index = seq.indexOf(Utils.reverseComplement(options.getPrimer()));
+	    	index = seq.indexOf(Utils.reverseComplement(sp.getPrimer()));
 	    	positiveStrand = false;
 	    }
 	    else {
@@ -224,36 +283,58 @@ public class TranslocationController {
 	    }
 	   
 	    if(index == -1) {
-	    	System.err.println("Primer could not be found");
+	    	System.err.println("Primer could not be found ["+sp.getPrimer()+"]");
 	    	System.exit(0);
 	    }
 		start = index;
-    	end = index+options.getPrimer().length();
-    	primerStart = start;
+    	end = index+sp.getPrimer().length();
+    	primerStart = start+1;
     	primerEnd = end;
+    	System.out.println(primerStart+" "+primerEnd+" "+positiveStrand+" "+sp.getPrimer());
     	//System.out.println("positions "+start+" - "+end);
     	//System.out.println("["+options.getChr()+"]");
     	//System.out.println(start);
     	//System.out.println(end);
     	//System.out.println(sr.hasIndex());
-	    SAMRecordIterator r = sr.query(options.getChr(), start, end, false);
+	    SAMRecordIterator r = sr.query(sp.getChr(), start, end, false);
 	    
 	    int count = 0;
 	    int NM0Count = 0;
 	    int duplicateFlag = 0;
-	    boolean debug = false;
+	    int Ncount = 0;
+	    int NoCount = 0;
+	 
+	    String debugReadName = "M02948:174:000000000-JBDYN:1:1106:7359:16598";
         while(r.hasNext()) {
         	count++;
         	SAMRecord srec = r.next();
         	if(debug) {
         		//System.err.println("Still here");
+        		if(srec.getReadName().contentEquals(debugReadName)) {
+        			System.out.println(srec.getReadName());
+        			System.out.println(srec.getCigarString());
+        			System.out.println(srec.getContig());
+        			System.out.println(srec.toString());
+        			System.out.println(srec.getReadString());
+        			System.out.println("MATE");
+        			SAMRecord temp = sr2.queryMate(srec);
+        			System.out.println(temp.getReadName());
+        			System.out.println(temp.getCigarString());
+        			System.out.println(temp.getContig());
+        			System.out.println(temp.toString());
+        			System.out.println(temp.getReadString());
+        			System.out.println("EO MATE");
+        		}
         	}
         	//only take 0 mismatches reads
         	//20200920 only take reads with max cigar length of 2
-        	if(Translocation.getNMis0(srec) && srec.getCigarLength()<=2) {
+        	if(Translocation.getNMis0(srec) ) {//&& srec.getCigarLength()<=2) {
         		if(debug) {
-            		//System.err.println("Still here NM0");
-            	}
+            		//System.err.println("Still here");
+            		if(srec.getReadName().contentEquals(debugReadName)) {
+                		System.err.println("Still here");
+            		}
+        		}
         		NM0Count++;
         		//chr has to be filled and unequal
         		//take the reverse complement if we are looking at reads going reverse
@@ -285,28 +366,46 @@ public class TranslocationController {
         		}
 	        	if(srec.getContig() != null && !srec.getContig().equals(srec.getMateReferenceName())) {
 	        		if(debug) {
-                		//System.err.println("Still here getting translocation");
-                		//System.err.println(srec.getReadString());
+	        			if(srec.getReadName().contentEquals(debugReadName)) {
+	                		System.err.println("Still here2 ");
+	            		}
                 	}
 	        		//read should start with the primer
-		       		if(srec.getReadString().startsWith(options.getPrimerPart(20))) {
+		       		//if(srec.getReadString().startsWith(sp.getPrimerPart(20))) {
+	        		//System.out.println(srec.getAlignmentStart() + " " + srec.getAlignmentEnd());
+	        		//System.out.println(srec.getReadString());
+	       			if((positiveStrand && srec.getAlignmentStart()==primerStart) ||
+	       					(!positiveStrand && srec.getAlignmentEnd()==primerEnd)){
 		       			if(debug) {
-	                		//System.err.println("Still here primer part is ok");
+		       				if(srec.getReadName().contentEquals(debugReadName)) {
+		                		System.err.println("Still here3");
+		                		System.err.println("is duplicate "+srec.getDuplicateReadFlag());
+		            		}
 	                	}
 		       			//System.out.println("starts correct "+srec.getReadNegativeStrandFlag() );
 		       			//System.out.println(positiveStrand);
 		       			//System.out.println(srec.getDuplicateReadFlag());
-		       			//System.out.println(srec.getFirstOfPairFlag() == options.isFirstOfPairFlag());
+		       			//System.out.println(srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag());
 		       			//no duplicates
 		       			
-		       			if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == options.isFirstOfPairFlag()) {// && srec.getReadNegativeStrandFlag() == positiveStrand) {
-		       				//System.out.println("adding");
+		       			if(!isDuplicate(srec) && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag()) {// && srec.getReadNegativeStrandFlag() == positiveStrand) {
+		       				//System.out.println("adding "+srec.getReadName()+" "+ isDuplicate(srec));
 		       				if(debug) {
+			       				if(srec.getReadName().contentEquals(debugReadName)) {
+			                		System.err.println("Still here4");
+			                		System.err.println(srec.isSecondaryAlignment());
+			       				}
 		       					
 		       				}
-	       					addTranslocation(srec);
+		       				if(srec.getReadString().contains("N")) {
+		       					Ncount++;
+		       				}
+		       				else {
+		       					NoCount++;
+		       				}
+	       					addTranslocation(srec, maxReadsPerTrans);
 		       			}
-		       			if(srec.getDuplicateReadFlag()) {
+		       			if(isDuplicate(srec)) {
 		       				duplicateFlag++;
 		       			}
 		       		}
@@ -321,7 +420,7 @@ public class TranslocationController {
 	        			int dist = Math.abs(srec.getMateAlignmentStart()-primerStart);
 		       			if(dist>500) {
 	        			
-			        		if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == options.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag() == positiveStrand) {
+			        		if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag() == positiveStrand) {
 			       				//System.out.println("adding");
 			       				if(debug) {
 			       					
@@ -350,8 +449,16 @@ public class TranslocationController {
 	        	*/
         	}
         	if(count%1000000==0) {
-        		System.out.println("Already processed "+count+" reads, NM0 reads "+NM0Count);
+        		System.out.println("Already processed "+count+" reads, NM0 reads "+NM0Count+" Ncount "+Ncount+" Nocount: "+NoCount);
         		//break;
+        	}
+        	if(getTotalTranslocations()==maxTrans) {
+        		System.err.println("Stopping because we have reached maxNr");
+        		break;
+        	}
+        	if(count==maxReads) {
+        		System.err.println("Reached "+maxReads+", stopping");
+        		break;
         	}
         }
         System.out.println("Strand is forward: "+positiveStrand);
@@ -365,7 +472,12 @@ public class TranslocationController {
         System.out.println("Adding refGenomeParts");
         addRefGenomePart(rsf);
         System.out.println("Added refGenomeParts");
-        printContents(bw, options.getMinSupport());
+        
+        System.out.println("hashAllRealPositions");
+        this.hashAllRealPositions();
+        System.out.println("hashAllRealPositions done");
+        
+        //}
         try {
 			sr.close();
 		} catch (IOException e) {
@@ -373,13 +485,16 @@ public class TranslocationController {
 			e.printStackTrace();
 		}
         if(debug) {
-        	String debugChr = "5";
-        	int startDebug = 22953212-5000;
+        	/*
+        	String debugChr = "4";
+        	int startDebug = 411102-5000;
     		int endDebug = startDebug+10000;
     		boolean forward = true;
     		Translocation tl = searchTranslocation(debugChr,startDebug, endDebug, forward);
     		if(tl!=null) {
     			System.out.println("DEBUG FROM HIER!");
+    			System.out.println(tl.getReads());
+    			//System.exit(0);
     			System.out.println(tl);
     			tl.printDebug();
     			System.out.println(tl.isForward());
@@ -388,7 +503,63 @@ public class TranslocationController {
     		else {
     			System.out.println("not found");
     		}
+    		*/
 		}
+	}
+	private int getTotalTranslocations() {
+		int	count = 0;
+		for(String key: trans.keySet()) {
+			count+= trans.get(key).size();
+		}
+		return count;
+	}
+	public ArrayList<Translocation> getTranslocations() {
+		ArrayList<Translocation> al = new ArrayList<Translocation>();
+		for(String key: trans.keySet()) {
+			al.addAll(trans.get(key));
+		}
+		return al;
+	}
+
+	public void print(BufferedWriter bw, BufferedWriter bwOut, int minSupport) {
+		System.out.println("print started");
+		if(bwOut!=null) {
+			printEventsComplete(bwOut, true);
+		}
+		else {
+			printEventsComplete(bwOut, false);
+		}
+		System.out.println("printEventsComplete done");
+		System.out.println("printContents started");
+       	printContents(bw, minSupport);
+       	System.out.println("printContents done");
+	}
+
+	private void printEventsComplete(BufferedWriter bwOut, boolean print) {
+		for(String key: trans.keySet()){
+			for(Translocation tl: trans.get(key)) {
+				try {
+					//bwOut.write(tl.getIGVPos()+"\n");
+					String s = tl.getReads();
+					if(print) {
+						bwOut.write(s+"\r\n");
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+			}
+		}
+		
+	}
+	public Translocation searchTranslocation(Translocation tl) {
+		if(this.searchRealPositions.size()==0) {
+			this.hashAllRealPositions();
+		}
+		String search = tl.getIGVPos()+tl.isForward();
+		Translocation found = searchRealPositions.get(search);
+		return found;
 	}
 
 	private Translocation searchTranslocation(String string, int startDebug, int endDebug, boolean forward) {
@@ -408,11 +579,16 @@ public class TranslocationController {
 	}
 
 	public void testLBRB() {
-		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(options.getRefFile());
+		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //System.out.println(rsf.isIndexed());
 		//System.out.println("["+options.getRefFile()+"]");
-	    String chr = options.getChr();
+	    String chr = sp.getChr();
+	    List<SAMSequenceRecord> list = rsf.getSequenceDictionary().getSequences();
+	    for(SAMSequenceRecord s: list) {
+	    	System.out.println(s.getSequenceName());
+	    }
 	    ReferenceSequence rs = rsf.getSequence(chr);
+	    
 	    //System.out.println(rs==null);
 	    String TDNA = rs.getBaseString().toUpperCase();
 	    int indexLB = TDNA.indexOf(LB);
@@ -451,7 +627,22 @@ public class TranslocationController {
 	    	indexLB = 1;
 		    indexRB = TDNA.length();
 	    }
-	    options.setTDNALBPos(indexLB, LBisForward);
-	    options.setTDNARBPos(indexRB, RBisForward);
+	    System.out.println("Setting LB "+indexLB+" "+LBisForward);
+	    System.out.println("Setting RB "+indexRB+" "+RBisForward);
+	    sp.setTDNALBPos(indexLB, LBisForward);
+	    sp.setTDNARBPos(indexRB, RBisForward);
+	}
+	public void hashAllRealPositions() {
+		for(Translocation tl: this.getTranslocations()) {
+			String key = tl.getIGVPos()+tl.isForward();
+			//that is not supposed to happend, but can happen if two events are really close
+			if(searchRealPositions.containsKey(key)) {
+				tl.setMultipleEvents();
+				searchRealPositions.get(key).setMultipleEvents();
+			}
+			else {
+				searchRealPositions.put(tl.getIGVPos()+tl.isForward(),tl);
+			}
+		}
 	}
 }

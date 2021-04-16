@@ -1228,17 +1228,38 @@ public class Translocation {
 			System.out.println("getTranslocationSequence".toUpperCase());
 		}
 		for(SAMRecord s:sams) {
-			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
-				if(s.getReadString().startsWith(sp.getPrimer())) {
+			if(s.getReadString().startsWith(sp.getPrimer())) {
+				if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
 					seqs.add(s.getReadString());
 					if(debug) {
-						System.out.println("\t"+s.getReadString());
-						System.out.println("\t"+s.getContig());
-						System.out.println("\t"+s.getCigarString());
-						System.out.println("\t"+s.getReadName());
+						//System.out.println("tak\t"+s.getReadString());
+						//System.out.println("tak\t"+s.getContig());
+						//System.out.println("tak\t"+s.getCigarString());
+						//System.out.println("tak\t"+s.getReadName());
+					}
+				}
+				//unless it is a secondary alignment and is a hard-clipped read
+				else if(s.getCigar().numCigarElements()>=2) {
+					//get second operator
+					if(s.isSecondaryAlignment() && s.getCigar().getCigarElement(1).getOperator() == CigarOperator.HARD_CLIP) {
+						if(debug) {
+							//System.out.println("tak\t"+s.getReadString());
+							//System.out.println("tak\t"+getReadTotalString(s));
+						}
+						seqs.add(getReadTotalString(s,2));
 					}
 				}
 				if(debug) {
+					/*
+					System.out.println("nie\t"+s.getReadString());
+					System.out.println("nieLong\t"+getReadTotalString(s));
+					System.out.println("nie\t"+s.getContig());
+					System.out.println("nie\t"+s.getCigarString());
+					System.out.println("nie\t"+s.getReadName());
+					System.out.println("nie\t"+cigarStringFollowsMSH(s.getCigarString()));
+					System.out.println("nie\t"+!s.isSecondaryAlignment());
+					System.out.println("========");
+					*/
 					//System.out.println(s.getReadString());
 					//System.out.println(s.getFirstOfPairFlag());
 					//System.out.println(s.getContig());
@@ -1271,6 +1292,32 @@ public class Translocation {
 			System.out.println("END OF getTranslocationSequence".toUpperCase());
 		}
 		return NOTRANSLOCATION;
+	}
+	/**Return the first nrCigarElements of this read. First the longest read is searched 
+	 * usually that is the one containing the soft-clipped parts
+	 * @param s
+	 * @param nrCigarElements
+	 * @return
+	 */
+	private String getReadTotalString(SAMRecord s, int nrCigarElements) {
+		SAMRecord longest = s;
+		for(SAMRecord sam: sams) {
+			if(sam.getReadName().contentEquals(s.getReadName())) {
+				if(sam.getFirstOfPairFlag() == s.getFirstOfPairFlag()) {
+					if(sam.getReadString().length()>longest.getReadString().length()) {
+						longest = sam;
+					}
+				}
+			}
+		}
+		if(longest.getCigarLength()>nrCigarElements) {
+			int length = 0;
+			for(int i=0;i<nrCigarElements;i++) {
+				length += longest.getCigar().getCigarElement(i).getLength();
+			}
+			return longest.getReadString().substring(0, length);
+		}
+		return longest.getReadString();
 	}
 	private static boolean cigarStringFollowsMSH(String cigarString) {
 		Pattern p = Pattern.compile("\\d*[MSH]\\d*[MSH]");
@@ -1500,6 +1547,10 @@ public class Translocation {
 			int end = -1;
 			if(this.isForward()) {
 				start = this.getRealPosition()-refSize;
+				//safety
+				if(start<0) {
+					start = 0;
+				}
 				end = this.getRealPosition();
 				this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
 				//take the reverse complement
@@ -1548,6 +1599,7 @@ public class Translocation {
 		System.out.println("getMinimalJunction:");
 		System.out.println(getMinimalJunction(true));
 		System.out.println(getRealPosition(true));
+		System.out.println(this.getTranslocationSequence(true));
 		
 	}
 	/**Debug method
@@ -1610,7 +1662,7 @@ public class Translocation {
 			//cigar = map+cigar;
 			String readPart = Translocation.getMatchedPart(sr, false);
 			TDNAcons.add(readPart);
-			sb.append(cigar+readPart).append("\r\n");
+			sb.append(cigar+readPart+" "+sr.getReadName()).append("\r\n");
 		}
 		sb.append(Translocation.getString("consensusTDNA", 24)).append(TDNAcons.getConsensusString()).append("\r\n");
 		sb.append(Translocation.getString("most frequent TDNA", 24)).append(TDNAcons.getMostRepeatedString()).append(" "+TDNAcons.getMostRepeatedStringNr()).append(" fraction:" +TDNAcons.getMostRepeatedStringFraction());

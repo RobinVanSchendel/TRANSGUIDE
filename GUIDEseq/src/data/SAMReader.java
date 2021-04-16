@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -35,72 +36,141 @@ public class SAMReader {
 			System.exit(0);
 		}
 		MyOptions options = new MyOptions(cmd);
-		String dir = "E:\\NGS\\GUIDEseq_Exp5\\300bpPlasmidMapped\\LZ31-3-L_S3.sorted.bam";
+		//String dir = "E:\\NGS\\Genome_Scan_104269\\umi_cons_bam\\";
+		String dir = "E:\\NGS\\Genome_Scan_104406\\";
 		boolean recursive = true;
+		boolean combineFiles = false;
+		//default == 2
+		int minSupport = 2;
+		//default 500
+		int maxReadsPerTrans = 500;
+		//default -1 == all
+		int maxTranslocation = -1;
+		//default -1 == all
+		int maxReads = -1;
+		
 		ArrayList<File> files = OutputCommands.searchSortedBam(new File(dir), recursive);
-		PrimerController pc = new PrimerController(new File("Sample_Primer.txt"));
+		PrimerController pc = new PrimerController(new File("Sample_Primer_104406.txt"));
+		File out = new File("out.txt");
+		
+		BufferedWriter allEvents = null;
+		BufferedWriter bw = null;
+		try {
+			allEvents = new BufferedWriter(new FileWriter("allEvents.txt"));
+			bw = new BufferedWriter(new FileWriter(out));
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		
 		boolean allFound = true;
 		for(File f: files) {
-			System.out.println(f.getName());
 			SamplePrimer sp = pc.getSamplePrimer(f);
 			if(sp==null) {
 				allFound = false;
-				System.err.println(f.getAbsolutePath()+ " does not have an entry");
+				System.out.println(f.getAbsolutePath()+ " does not have an entry");
+				//System.out.println(f.getAbsolutePath()+"\t"+f.getName());
+			}
+			else {
+				System.out.println(f.getAbsolutePath()+"\t"+sp.toString());
 			}
 		}
 		if(!allFound) {
-			System.exit(0);
+			//System.exit(0);
 		}
 		
-		File out = new File("out.txt");
-		int nr = 0;
+
+		
+		HashMap<SamplePrimer, TranslocationController> hm = new HashMap<SamplePrimer, TranslocationController>();
+		if(!combineFiles) {
+			try {
+				bw.write(SamplePrimer.getSampleStringHeader()+"\t"+Translocation.getHeader()+"\r\n");
+			}
+			catch(Exception e) {
+				e.printStackTrace();
+			}
+		}
+		
 		for(File f: files) {
 			SamplePrimer sp = pc.getSamplePrimer(f);
 			if(sp==null) {
-				System.err.println(f.getAbsolutePath()+ " does not have an entry");
-			}
-			String primer = sp.getPrimer();
-			String chr = sp.getChr();
-			File ref = sp.getRef();
-			options.setLB(sp.isLB());
-			options.setRef(ref);
-			options.setPrimer(primer);
-			options.setFile(f);
-			options.setChr(chr);
-			
-			BufferedWriter bw = null;
-			if(nr==0) {
-				try {
-					bw = new BufferedWriter(new FileWriter(out,false));
-					bw.write("File\t"+Translocation.getHeader()+"\n");
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			else {
-				try {
-					bw = new BufferedWriter(new FileWriter(out,true));
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				continue;
 			}
 			
-			//System.out.println(options.printParameters());
-	        TranslocationController tc = new TranslocationController(options);
-	        tc.testLBRB();
-	        tc.launchAnalysis(bw);
-	        try {
-				bw.close();
-			} catch (IOException e) {
+			sp.setFile(f);
+			System.out.println(f.getName());
+			System.out.println(sp.getDNAsample());
+			//if(f.getName().contains("SP5-1-LB")) {
+			//	System.out.println("contains");
+			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
+				
+				String primer = sp.getPrimer();
+				String chr = sp.getChr();
+				File ref = sp.getRef();
+				options.setLB(sp.isLB());
+				options.setRef(ref);
+				options.setPrimer(primer);
+				options.setFile(f);
+				options.setChr(chr);
+				
+				//System.out.println(options.printParameters());
+		        TranslocationController tc = new TranslocationController(sp);
+		        hm.put(sp,tc);
+		        tc.testLBRB();
+		        //should be -1
+		        tc.launchAnalysis(maxTranslocation,maxReadsPerTrans, maxReads);
+		        if(!combineFiles) {
+		        	hm.get(sp).print(bw, allEvents, minSupport);
+					hm.put(sp,null);
+		        }
+			//System.out.println("hier! " +sp.getRun());
+			//}
+		}
+		//reiterate all samples in hash
+		if(combineFiles) {
+			for(SamplePrimer ps: hm.keySet()) {
+				String DNAsample = ps.getDNAsample();
+				TranslocationController tc = hm.get(ps);
+				System.out.println("Searching SamplePrimer "+ps.getSample());
+				for(SamplePrimer ps2: hm.keySet()) {
+					if(ps != ps2) {
+						TranslocationController tc2 = hm.get(ps2);
+						for(Translocation tl: tc.getTranslocations()) {
+							Translocation tl2 = tc2.searchTranslocation(tl);
+							if(tl2!=null) {
+								if(DNAsample.contentEquals(ps2.getDNAsample())){
+									tl.addFoundOtherSampleMatchingDNA(ps2.getSample());
+								}
+								else {
+									tl.addFoundOtherSampleNonMatchingDNA(ps2.getSample());
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			
+			//print
+			try {
+				bw.write(SamplePrimer.getSampleStringHeader()+"\t"+Translocation.getHeader()+"\r\n");
+			} catch (IOException e1) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				e1.printStackTrace();
 			}
-	        nr++;
+			for(SamplePrimer sp: hm.keySet()) {
+				hm.get(sp).print(bw, allEvents, minSupport);
+				hm.put(sp,null);
+			}
 		}
 		System.out.println("Output written to: "+out.getAbsolutePath());
+		try {
+			allEvents.close();
+			bw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 
 	private static Options createOptions() {
