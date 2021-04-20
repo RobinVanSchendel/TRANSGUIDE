@@ -134,12 +134,14 @@ public class TranslocationController {
 			for(String key: trans.keySet()){
 				int printNr = 0;
 				for(Translocation tl: trans.get(key)) {
-					if(tl.getNrAnchors(false)>=minSupport) {
-						//String output = null;
-						String output = tl.toString(debug);
-						bw.write(sp.getSampleString()+"\t"+output+"\n");
-						counter++;
-						printNr++;
+					if(tl.getSams().size()>0) {
+						if(tl.getNrAnchors(false)>=minSupport) {
+							//String output = null;
+							String output = tl.toString(debug);
+							bw.write(sp.getSampleString()+"\t"+output+"\n");
+							counter++;
+							printNr++;
+						}
 					}
 				}
 				System.out.println("Written "+printNr+" : "+trans.get(key).size()+" events with >= "+minSupport+" support "+sp.getSample());
@@ -162,14 +164,15 @@ public class TranslocationController {
 				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition()-around, tl.getPosition()+around, false);
 				int counter2 = 0;
 				//System.out.println(tl.getContigMate()+":"+tl.getPosition());
+				String testName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					//System.out.println(srec.getReadName());
-					if(srec.getReadName().contentEquals("A00379:349:HM7WFDSXY:4:1108:19723:23062")) {
+					if(srec.getReadName().contentEquals(testName)) {
 						System.err.println("found it"+srec.getReadName()+" "+srec.getReadLength());
 					}
 					if(srec.getContig()!=null) {
-						if(srec.getReadName().contentEquals("A00379:349:HM7WFDSXY:4:1108:19723:23062")) {
+						if(srec.getReadName().contentEquals(testName)) {
 							System.err.println("found it still here"+srec.getReadName()+" "+srec.getCigarString());
 							System.err.println("found it still here"+srec.getReadName()+" "+isDuplicate(srec));
 							System.err.println("found it still here"+srec.getReadName()+" "+tl.containsRecord(srec.getReadName()));
@@ -177,14 +180,31 @@ public class TranslocationController {
 							
 						}
 						//if first read is in, why remove the second if it is duplicate?
+						/*
 						if(tl.containsRecord(srec.getReadName())) {
-						//if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
+							System.out.println(srec.getDuplicateReadFlag()+" "+isDuplicate(srec));
+							if(isDuplicate(srec)) {
+								System.out.println(srec.getCigarString());
+								tl.printMate(srec);
+							}
+						*/
+						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
 							//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
 							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
-							if(srec.getReadName().contentEquals("A00379:349:HM7WFDSXY:4:1108:19723:23062")) {
+							if(srec.getReadName().contentEquals(testName)) {
 								System.err.println("found it adding"+srec.getReadName()+" "+srec.getReadLength());
 							}
 							boolean added = tl.addSam(srec);
+							if(srec.getReadName().contentEquals(testName)) {
+								System.err.println("added??? "+added);
+							}
+						}
+						//sometimes hard clipped reads went through our duplicate filter
+						if(isDuplicate(srec)) {
+							if(srec.getReadName().contentEquals(testName)) {
+								System.err.println("removing "+srec.getReadName());
+							}
+							tl.removeSam(srec);
 						}
 						//not sure if I want these
 						/*
@@ -304,7 +324,7 @@ public class TranslocationController {
 	    int Ncount = 0;
 	    int NoCount = 0;
 	 
-	    String debugReadName = "M02948:174:000000000-JBDYN:1:1106:7359:16598";
+	    String debugReadName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
         while(r.hasNext()) {
         	count++;
         	SAMRecord srec = r.next();
@@ -380,6 +400,8 @@ public class TranslocationController {
 		       				if(srec.getReadName().contentEquals(debugReadName)) {
 		                		System.err.println("Still here3");
 		                		System.err.println("is duplicate "+srec.getDuplicateReadFlag());
+		                		System.err.println("is sa "+srec.isSecondaryAlignment());
+		                		System.err.println("is sa/su "+srec.isSecondaryOrSupplementary());
 		            		}
 	                	}
 		       			//System.out.println("starts correct "+srec.getReadNegativeStrandFlag() );
@@ -538,15 +560,17 @@ public class TranslocationController {
 	private void printEventsComplete(BufferedWriter bwOut, boolean print) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
-				try {
-					//bwOut.write(tl.getIGVPos()+"\n");
-					String s = tl.getReads();
-					if(print) {
-						bwOut.write(s+"\r\n");
+				if(tl.getSams().size()>0) {
+					try {
+						//bwOut.write(tl.getIGVPos()+"\n");
+						String s = tl.getReads();
+						if(print) {
+							bwOut.write(s+"\r\n");
+						}
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
 				}
 				
 			}
@@ -634,14 +658,16 @@ public class TranslocationController {
 	}
 	public void hashAllRealPositions() {
 		for(Translocation tl: this.getTranslocations()) {
-			String key = tl.getIGVPos()+tl.isForward();
-			//that is not supposed to happend, but can happen if two events are really close
-			if(searchRealPositions.containsKey(key)) {
-				tl.setMultipleEvents();
-				searchRealPositions.get(key).setMultipleEvents();
-			}
-			else {
-				searchRealPositions.put(tl.getIGVPos()+tl.isForward(),tl);
+			if(tl.getSams().size()>0) {
+				String key = tl.getIGVPos()+tl.isForward();
+				//that is not supposed to happend, but can happen if two events are really close
+				if(searchRealPositions.containsKey(key)) {
+					tl.setMultipleEvents();
+					searchRealPositions.get(key).setMultipleEvents();
+				}
+				else {
+					searchRealPositions.put(tl.getIGVPos()+tl.isForward(),tl);
+				}
 			}
 		}
 	}

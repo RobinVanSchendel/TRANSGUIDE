@@ -88,7 +88,11 @@ public class Translocation {
 			s.setAttribute("OC", s.getCigarString());
 			s = Translocation.reverseComplementSAMRecord(s);
 		}
-		
+		String testName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
+		if(s.getReadName().contentEquals(testName)) {
+			System.err.println("added "+s.getReadString());
+			System.err.println("added "+s.getCigarString());
+		}
 		sams.add(s);
 		names.put(s.getReadName(),0);
 		return true;
@@ -1793,5 +1797,22 @@ public class Translocation {
 	}
 	public void setMultipleEvents() {
 		this.multipleEvents = true;
+	}
+	public void printMate(SAMRecord s) {
+		System.out.println(s.getCigarString()+" "+s.getDuplicateReadFlag()+" "+s.getFirstOfPairFlag()+" "+s.getReadName());
+		for(SAMRecord sr: this.getSams()) {
+			if(sr.getReadName().contentEquals(s.getReadName())) {
+				System.out.println(" "+sr.getCigarString()+" "+sr.getDuplicateReadFlag()+" "+sr.getFirstOfPairFlag());
+			}
+		}
+		
+	}
+	public void removeSam(SAMRecord srec) {
+		for(int i=sams.size()-1;i>=0;i--) {
+			if(sams.get(i).getReadName().contentEquals(srec.getReadName())) {
+				sams.remove(i);
+			}
+		}
+		names.remove(srec.getReadName());
 	}
 }

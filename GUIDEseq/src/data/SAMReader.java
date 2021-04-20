@@ -43,7 +43,7 @@ public class SAMReader {
 		//default == 2
 		int minSupport = 2;
 		//default 500
-		int maxReadsPerTrans = 500;
+		int maxReadsPerTrans = 1000;
 		//default -1 == all
 		int maxTranslocation = -1;
 		//default -1 == all
@@ -100,7 +100,7 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			//if(f.getName().contains("SP5-1-LB")) {
+			if(f.getName().contains("BL25_LZB2_LB")) {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				
@@ -124,7 +124,7 @@ public class SAMReader {
 					hm.put(sp,null);
 		        }
 			//System.out.println("hier! " +sp.getRun());
-			//}
+			}
 		}
 		//reiterate all samples in hash
 		if(combineFiles) {
