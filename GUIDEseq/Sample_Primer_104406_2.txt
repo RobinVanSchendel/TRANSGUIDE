@@ -1,0 +1,17 @@
+Secondary primer seq	ref	plasmid	LB	P5	Primary primer name	Primary primer  seq	Secondary primer name	Secondary primer seq	DNAsampleID	genotype	ecotype	Cleanup and ligation protocol version	Amplification protocol version	Run	UMI
+TCGGCGTTAATTCAGTACA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL29_LZB2_LB					104406	FALSE
+TATTGGAGCTTGAGCTTGG	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL29_LZB2_RB					104406	FALSE
+GATAATTCAATTCGGCGTTA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL30_LZB1_LB					104406	FALSE
+CTTGAGCTTGGATCAGA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL30_LZB1_RB					104406	FALSE
+TCGGCGTTAATTCAGTACA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					LZ130_LZB2_LB					104406	FALSE
+TATTGGAGCTTGAGCTTGG	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					LZ130_LZB2_RB					104406	FALSE
+TCGGCGTTAATTCAGTACA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL9-LB					104406	FALSE
+TATTGGAGCTTGAGCTTGG	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL9-RB					104406	FALSE
+TCGGCGTTAATTCAGTACA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL10-LB					104406	FALSE
+TATTGGAGCTTGAGCTTGG	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL10-RB					104406	FALSE
+TCGGCGTTAATTCAGTACA	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL11-LB					104406	FALSE
+TATTGGAGCTTGAGCTTGG	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					BL11-RB					104406	FALSE
+CGGCGTTAATTCAGTACATT	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					tim-teb-1-LB					104406	FALSE
+ATGAGCTTGAGCTTGGAT	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					tim-teb-1-RB					104406	FALSE
+CGGCGTTAATTCAGTACATT	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					tim-teb-4-LB					104406	FALSE
+ATGAGCTTGAGCTTGGAT	E:\NGS\GUIDEseq_Exp2\RefSeq\Arabidopsis_thaliana.TAIR10.28_pUBC.dna.genome.fa	pUBC-YFP-Dest	LB	P7					tim-teb-4-RB					104406	FALSE
