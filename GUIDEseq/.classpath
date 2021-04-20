@@ -5,5 +5,7 @@
 	<classpathentry combineaccessrules="false" kind="src" path="/htsjdk"/>
 	<classpathentry kind="lib" path="libraries/commons-cli-1.4.jar"/>
 	<classpathentry kind="src" path="/DNAToolAnalysis"/>
+	<classpathentry kind="lib" path="libraries/htsjdk-2.18.0-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="libraries/jillion-5.3-SNAPSHOT.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
