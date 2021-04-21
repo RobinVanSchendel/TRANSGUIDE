@@ -181,7 +181,6 @@ public class SAMReader {
                 .hasArg()
                 .argName("FILE")
                 .desc("the input sorted and indexed bam file that is used to map the reads" )
-                .required(true)
                 .build();
 		o.addOption(i);
 		Option r   = Option.builder( "r" )
@@ -189,7 +188,6 @@ public class SAMReader {
                 .hasArg()
                 .argName("FILE")
                 .desc("the reference file that is used to map the reads" )
-                .required(true)
                 .build();
 		o.addOption(r);
 		
@@ -198,7 +196,6 @@ public class SAMReader {
 				.hasArg()
 				.argName("STRING")
 				.desc("The internal primer used in the GUIDEseq experiment")
-				.required()
 				.build();
 		o.addOption(p);
 		
@@ -207,7 +204,6 @@ public class SAMReader {
 				.hasArg()
 				.argName("STRING")
 				.desc("The plasmid name that is integrated into the genome")
-				.required()
 				.build();
 		o.addOption(c);
 		
