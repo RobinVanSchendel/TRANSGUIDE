@@ -183,7 +183,7 @@ public class Translocation {
 		}
 		return count;
 	}
-	//get the the anchor lenght of this read, which is the first or last cigar, which has to be M and then the size
+	//get the the anchor length of this read, which is the first or last cigar, which has to be M and then the size
 	private static int getMatchLength(SAMRecord sam) {
 		CigarElement last = sam.getCigar().getLastCigarElement();
 		//require a match at the end, otherwise it is not an anchor

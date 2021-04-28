@@ -614,42 +614,50 @@ public class TranslocationController {
 	    ReferenceSequence rs = rsf.getSequence(chr);
 	    
 	    //System.out.println(rs==null);
+	    //should give the first occurrence of LB in TDNA which is indexLB
 	    String TDNA = rs.getBaseString().toUpperCase();
 	    int indexLB = TDNA.indexOf(LB);
 	    //maybe reverse complement?
+	    // here LB and RB are declared to be forward
 	    boolean LBisForward = true;
 	    boolean RBisForward = true;
+	    //if LB never occurs, reverse complement. If LB then does occur, add 4 to the position because of the nicks. and declare LB reverse
 	    if(indexLB == -1) {
 	    	indexLB = TDNA.indexOf(Utils.reverseComplement(LB));
 	    	if(indexLB>=0) {
-	    		indexLB+=3;
+	    		//heb ik veranderd van 3 naar 4
+	    		indexLB+=4;
 	    	}
 	    	LBisForward = false;
 	    }
-	    //nick position
+	    //als LB wel gevonden wordt, is die dus forward. dan moet de index 22 bp verderop vanwege de nick
 	    else {
 	    	indexLB +=22;
 	    }
+	    //en nu hetzelfde voor de RB, maar dan +3 of +23.
 	    int indexRB = TDNA.indexOf(RB);
 	    if(indexRB == -1) {
 	    	indexRB = TDNA.indexOf(Utils.reverseComplement(RB));
 	    	if(indexRB>=0) {
-	    		indexRB+=2;
+	    		//heb ik veranderd van 2 naar 3
+	    		indexRB+=3;
 	    	}
 	    	RBisForward = false;
 	    }
 	    else {
 	    	indexRB +=23;
 	    }
-	    if(indexLB == -1 && indexRB == -1) {
-	    	//System.err.println("LB or RB could not be found in sequence "+chr);
-	    	//System.err.println("LB: "+indexLB);
-		    //System.err.println("RB: "+indexRB);
-		    //System.exit(0);
-	    	LBisForward = false;
-	    	RBisForward = true;
-	    	indexLB = 1;
-		    indexRB = TDNA.length();
+	    //als een van beide borders niet gevonden kan worden, geef een error, laat zien welke fout zijn, en stop het programma
+	    if(indexLB == -1 || indexRB == -1) {
+	    	System.err.println("LB or RB could not be found in sequence "+chr);
+	    	System.err.println("LB: "+indexLB);
+		    System.err.println("RB: "+indexRB);
+		    System.exit(0);
+	    	//geen idee waarom de lines hieronder aanwezig zijn:
+		    //LBisForward = false;
+	    	//RBisForward = true;
+	    	//indexLB = 1;
+		   // indexRB = TDNA.length();
 	    }
 	    System.out.println("Setting LB "+indexLB+" "+LBisForward);
 	    System.out.println("Setting RB "+indexRB+" "+RBisForward);
@@ -660,7 +668,7 @@ public class TranslocationController {
 		for(Translocation tl: this.getTranslocations()) {
 			if(tl.getSams().size()>0) {
 				String key = tl.getIGVPos()+tl.isForward();
-				//that is not supposed to happend, but can happen if two events are really close
+				//that is not supposed to happen, but can happen if two events are really close
 				if(searchRealPositions.containsKey(key)) {
 					tl.setMultipleEvents();
 					searchRealPositions.get(key).setMultipleEvents();

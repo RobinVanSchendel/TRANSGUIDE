@@ -37,7 +37,7 @@ public class SAMReader {
 		}
 		MyOptions options = new MyOptions(cmd);
 		//String dir = "E:\\NGS\\Genome_Scan_104269\\umi_cons_bam\\";
-		String dir = "E:\\NGS\\Genome_Scan_104406\\";
+		String dir = "D:\\Lejon\\Documents\\T-DNA integration job\\GUIDEseq_experiment_8\\";
 		boolean recursive = true;
 		boolean combineFiles = false;
 		//default == 2
@@ -100,7 +100,7 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			if(f.getName().contains("BL25_LZB2_LB")) {
+			if(f.getName().contains("tim-teb-4-LB")) {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				
