@@ -2,8 +2,28 @@ package data;
 
 import java.io.File;
 
+/**
+ *@param sample (private String)
+ *@param primer (private String)
+ *@param chr (private String)
+ *@param ref (private File)
+ *@param LB (private boolean)
+ *@param DNAsample (private String)
+ *@param genotype (private String)
+ *@param ecotype (private String)
+ *@param P5 (private String)
+ *@param RBisForward (private boolean)
+ *@param RBpos (private int)
+ *@param LBisForward (private boolean)
+ *@param LBpos (private int)
+ *@param file (private File)
+ *@param run (private String)
+ *@param UMI (private boolean)
+ */
 public class SamplePrimer {
-	private String sample, primer, chr;
+	private String sample; 
+	private String primer; 
+	private String chr;
 	private File ref;
 	private boolean LB;
 	private String DNAsample;
@@ -79,6 +99,9 @@ public class SamplePrimer {
 	public File getRef() {
 		return ref;
 	}
+	/**
+	 * @return the value of String "chr" of the current instance
+	 */
 	public String getChr() {
 		return this.chr;
 	}
@@ -92,6 +115,10 @@ public class SamplePrimer {
 		}
 		return sample+"\t"+LB+"\t"+this.getChr()+"\t"+getPrimer()+"\t"+DNAsample+"\t"+genotype+"\t"+ecotype;
 	}
+	/**
+	 * Returns true the P5 primer has been specified, or false if the P7 primer has been specified. Otherwise exit program.
+	 * @return true or false 
+	 */
 	public boolean isFirstOfPairFlag() {
 		if(P5.contentEquals("P5")) {
 			return true;
@@ -115,6 +142,11 @@ public class SamplePrimer {
 	public int getTDNARBPos() {
 		return RBpos;
 	}
+	/**
+	 * 
+	 * @param pos
+	 * @param lBisForward
+	 */
 	public void setTDNALBPos(int pos, boolean lBisForward) {
 		this.LBisForward = lBisForward;
 		this.LBpos = pos;

@@ -1,26 +1,26 @@
 package data;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 
-import htsjdk.samtools.*;
+import htsjdk.samtools.Cigar;
+import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.SAMRecordIterator;
+import htsjdk.samtools.SAMSequenceRecord;
+import htsjdk.samtools.SamReader;
+import htsjdk.samtools.SamReaderFactory;
+import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
 
-import static java.util.Comparator.*;
-
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-
 public class TranslocationController {
 	private HashMap<String, ArrayList<Translocation>> trans = new HashMap<String, ArrayList<Translocation>>();
-	public static final int MAXDIST = 500;
+	//temporarily changed from 500 to 0.
+	public static final int MAXDIST = 10;
 	private int primerStart, primerEnd;
 	public static final String LB = "GTTTACACCACAATATATCCTGCCA";
 	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA";
@@ -31,10 +31,43 @@ public class TranslocationController {
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
 	}
-
+    
+	//I think this whole block needs to be altered.
+	private Translocation getNearestTranslocation(SAMRecord s) {
+		if (Translocation.getPosition2(s, sp)!=-1) {
+			//pos is ok
+			int pos = Translocation.getPosition2(s, sp);
+		
+			Translocation nearest = null;
+			int minDis = Integer.MAX_VALUE;
+			if(trans.get(s.getMateReferenceName()) == null) {
+				return null;
+			}
+			for(Translocation tl: trans.get(s.getMateReferenceName())) {
+				//if(tl.isForward() != s.getMateNegativeStrandFlag()) {
+					int tempPos = tl.getPosition1();
+					int distance = Math.abs(pos-tempPos);
+					if(distance<minDis) {
+						minDis = distance;
+						nearest = tl; 
+					}
+					else if(minDis>=0 && minDis<MAXDIST && nearest!=null) {
+						return nearest;
+					}
+					//}
+			}
+			if (minDis<MAXDIST) {
+				return nearest;
+			}
+			return null;
+		}
+		else {
+			return null;
+		}
+	}
 	public Translocation addTranslocation(SAMRecord s, int maxReads) {
 		Translocation nearest = getNearestTranslocation(s);
-//		int pos = Translocation.getPosition(s, options);
+//		int pos = Translocation.getPosition2(s, options);
 		if(nearest !=null) {
 			if(nearest.getSams().size()<maxReads) {
 				nearest.addSam(s);
@@ -59,71 +92,7 @@ public class TranslocationController {
 		}
 		return null;
 	}
-
-	private Translocation getNearestTranslocation(SAMRecord s) {
-		int pos = Translocation.getPosition(s, sp);
-		Translocation nearest = null;
-		int minDis = Integer.MAX_VALUE;
-		if(trans.get(s.getMateReferenceName()) == null) {
-			//System.out.println("don't yet have "+s.getMateReferenceName());
-			return null;
-		}
-		for(Translocation tl: trans.get(s.getMateReferenceName())) {
-			//System.out.println(tl.getContigMate()+":"+s.getMateReferenceName());
-			//getMateNegativeStrandFlag == Forward
-			//System.out.println("same Contig");
-			//System.out.println(tl.isForward()+":"+!s.getMateNegativeStrandFlag());
-			//if(s.getMateReferenceName().contentEquals("5")) {
-				//System.out.println(s.getMateReferenceName()+" contains "+trans.get(s.getMateReferenceName()).size()+" search "+pos);
-				//System.out.println(tl.isForward() != s.getMateNegativeStrandFlag());
-				/*
-				for(Translocation tl2: trans.get(s.getMateReferenceName())){
-					System.out.println("\t"+tl2.getPosition());
-					System.out.println(tl.isForward() != s.getMateNegativeStrandFlag());
-					int tempPos = tl.getPosition();
-					int distance = Math.abs(pos-tempPos);
-					System.out.println("\tdistance:\t"+distance);
-				}
-				*/
-			//}
-			if(tl.isForward() != s.getMateNegativeStrandFlag()) {
-				//System.out.println("same orientation");
-				int tempPos = tl.getPosition();
-				int distance = Math.abs(pos-tempPos);
-				//System.out.println("distance: "+distance);
-				//if(distance>20000000) {
-				//	System.out.println(tl.getContigMate()+"\t"+tl.getPosition());
-				//	System.out.println(pos);
-				//}
-				if(distance<minDis) {
-					minDis = distance;
-					nearest = tl; 
-				}
-				//small optimization
-				if(minDis == 0) {
-					//System.out.println("shortcut! "+minDis);
-					//System.out.println("found it "+s.getMateReferenceName()+" "+ pos);
-					return nearest;
-				}
-				//is that correct?
-				else if(minDis>0 && minDis<MAXDIST && nearest!=null) {
-					//System.out.println("shortcut "+minDis);
-					//System.out.println("found it "+s.getMateReferenceName()+" "+ pos);
-					return nearest;
-				}
-			}
-		}
-		//System.out.println(s.getMateReferenceName() + " "+pos);
-		//System.out.println(minDis);
-		//only do this when we have a nearest
-		if (minDis<MAXDIST) {
-			//System.out.println("found it "+s.getMateReferenceName()+" "+ pos);
-			return nearest;
-		}
-		//System.out.println("Creating new "+s.getMateReferenceName()+" "+ pos);
-		//System.out.println(minDis);
-		return null;
-	}
+    
 
 	public void printContents(BufferedWriter bw, long minSupport) {
 		//sorting doesn't work at the moment
@@ -161,21 +130,21 @@ public class TranslocationController {
 			for(Translocation tl: trans.get(key)) {
 				count++;
 				//System.out.println(tl.getContigMate());
-				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition()-around, tl.getPosition()+around, false);
+				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition1()-around, tl.getPosition1()+around, false);
 				int counter2 = 0;
-				//System.out.println(tl.getContigMate()+":"+tl.getPosition());
+				//System.out.println(tl.getContigMate()+":"+tl.getPosition1());
 				String testName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					//System.out.println(srec.getReadName());
 					if(srec.getReadName().contentEquals(testName)) {
-						System.err.println("found it"+srec.getReadName()+" "+srec.getReadLength());
+						//System.err.println("found it"+srec.getReadName()+" "+srec.getReadLength());
 					}
 					if(srec.getContig()!=null) {
 						if(srec.getReadName().contentEquals(testName)) {
-							System.err.println("found it still here"+srec.getReadName()+" "+srec.getCigarString());
-							System.err.println("found it still here"+srec.getReadName()+" "+isDuplicate(srec));
-							System.err.println("found it still here"+srec.getReadName()+" "+tl.containsRecord(srec.getReadName()));
+							//System.err.println("found it still here"+srec.getReadName()+" "+srec.getCigarString());
+							//System.err.println("found it still here"+srec.getReadName()+" "+isDuplicate(srec));
+							//System.err.println("found it still here"+srec.getReadName()+" "+tl.containsRecord(srec.getReadName()));
 							
 							
 						}
@@ -255,7 +224,10 @@ public class TranslocationController {
 		return srec.getDuplicateReadFlag();
 		
 	}
-
+	/**
+	 * 
+	 * @param rsf
+	 */
 	public void addRefGenomePart(ReferenceSequenceFile rsf) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
@@ -593,7 +565,7 @@ public class TranslocationController {
 			return null;
 		}
 		for(Translocation tl: al) {
-			int pos = tl.getPosition();
+			int pos = tl.getPosition1();
 			if(pos>startDebug && pos < endDebug && tl.isForward() == forward) {
 				//System.out.println("FOUND!");
 				return tl;
@@ -601,7 +573,9 @@ public class TranslocationController {
 		}
 		return null;
 	}
-
+	/**
+	 * Finds and prints the locations of the LB and RB nicks
+	 */
 	public void testLBRB() {
 		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //System.out.println(rsf.isIndexed());
@@ -614,32 +588,29 @@ public class TranslocationController {
 	    ReferenceSequence rs = rsf.getSequence(chr);
 	    
 	    //System.out.println(rs==null);
-	    //should give the first occurrence of LB in TDNA which is indexLB
+	    //should give the position of the first occurrence of LB in TDNA which is indexLB
 	    String TDNA = rs.getBaseString().toUpperCase();
 	    int indexLB = TDNA.indexOf(LB);
-	    //maybe reverse complement?
 	    // here LB and RB are declared to be forward
 	    boolean LBisForward = true;
 	    boolean RBisForward = true;
-	    //if LB never occurs, reverse complement. If LB then does occur, add 4 to the position because of the nicks. and declare LB reverse
+	    //if LB never occurs, reverse complement. If LB does occur, shift position by 4 because of the nick, and declare LB reverse
 	    if(indexLB == -1) {
 	    	indexLB = TDNA.indexOf(Utils.reverseComplement(LB));
 	    	if(indexLB>=0) {
-	    		//heb ik veranderd van 3 naar 4
 	    		indexLB+=4;
 	    	}
 	    	LBisForward = false;
 	    }
-	    //als LB wel gevonden wordt, is die dus forward. dan moet de index 22 bp verderop vanwege de nick
+	    //if the LB can be found, it should be forward. The index should then be shifted by 22.
 	    else {
 	    	indexLB +=22;
 	    }
-	    //en nu hetzelfde voor de RB, maar dan +3 of +23.
+	    //same for RB, but +3 or +23
 	    int indexRB = TDNA.indexOf(RB);
 	    if(indexRB == -1) {
 	    	indexRB = TDNA.indexOf(Utils.reverseComplement(RB));
 	    	if(indexRB>=0) {
-	    		//heb ik veranderd van 2 naar 3
 	    		indexRB+=3;
 	    	}
 	    	RBisForward = false;
@@ -647,13 +618,13 @@ public class TranslocationController {
 	    else {
 	    	indexRB +=23;
 	    }
-	    //als een van beide borders niet gevonden kan worden, geef een error, laat zien welke fout zijn, en stop het programma
+	    //if neither borders are found, give an error, show which is wrong, and stop the program
 	    if(indexLB == -1 || indexRB == -1) {
 	    	System.err.println("LB or RB could not be found in sequence "+chr);
 	    	System.err.println("LB: "+indexLB);
 		    System.err.println("RB: "+indexRB);
 		    System.exit(0);
-	    	//geen idee waarom de lines hieronder aanwezig zijn:
+	    	//following 4 lines are obsolete?
 		    //LBisForward = false;
 	    	//RBisForward = true;
 	    	//indexLB = 1;

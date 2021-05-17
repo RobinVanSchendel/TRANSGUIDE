@@ -56,6 +56,7 @@ public class SAMReader {
 		BufferedWriter allEvents = null;
 		BufferedWriter bw = null;
 		try {
+			//this creates a file that writes the sequences of the reads of the junctions and additional info
 			allEvents = new BufferedWriter(new FileWriter("allEvents.txt"));
 			bw = new BufferedWriter(new FileWriter(out));
 		} catch (IOException e1) {
@@ -100,7 +101,8 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			if(f.getName().contains("tim-teb-4-LB")) {
+			//select a specific sample for testing
+			if(f.getName().contains("BL29_LZB2_RB"))  {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				

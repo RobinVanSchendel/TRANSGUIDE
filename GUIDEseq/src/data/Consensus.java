@@ -13,6 +13,10 @@ public class Consensus {
 	public Consensus() {
 		strings = new ArrayList<String>();
 	}
+	/**
+	 * if the number of elements in "strings" =0, return null. Otherwise, return the consensus sequence
+	 * @return null, or consensus sequence
+	 */
 	public String getMostRepeatedString() {
 		if(strings.size()==0) {
 			return null;
@@ -27,6 +31,7 @@ public class Consensus {
 	          .getKey();
 		return mostRepeatedWord;
 	}
+	
 	public int getMostRepeatedStringNr() {
 		String most = this.getMostRepeatedString();
 		int count = 0;
