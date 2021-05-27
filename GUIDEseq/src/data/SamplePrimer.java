@@ -58,17 +58,15 @@ public class SamplePrimer {
 		File ref = new File(parts[2]);
 		String chr = parts[3];
 		String P5 = parts[5];
-		String dna = parts[10];
-		String genotype = parts[11];
-		String ecotype = parts[12];
-		String run = null;
-		if(parts.length>=16) {
-			run = parts[15];
-		}
+		String dna = parts[6];
+		String genotype = parts[7];
+		String ecotype = parts[8];
+		String run = parts[9];
+		
 		boolean UMI = false;
-		if(parts.length>=17) {
-			UMI = Boolean.parseBoolean(parts[16]);
-		}
+		//if(parts.length>=17) {
+		//	UMI = Boolean.parseBoolean(parts[16]);
+		//}
 		
 		boolean LB = true;
 		if(parts[4].contentEquals("LB")) {
@@ -81,7 +79,7 @@ public class SamplePrimer {
 			System.err.println("LB or RB should be filled in: "+line);
 			System.exit(0);
 		}
-		return new SamplePrimer(sample, primer, ref, chr, LB,dna,genotype,ecotype, P5, run, UMI);
+		return new SamplePrimer(sample, primer, ref, chr, LB, dna, genotype, ecotype, P5, run, UMI);
 	}
 	public boolean sampleNameMatches(String str) {
 		String sampleBam = sample+".sorted.bam";
@@ -132,18 +130,23 @@ public class SamplePrimer {
 		}
 		return false;
 	}
+	/**
+	 * Sets RBpos from indexRB
+	 * @param pos
+	 * @param rBisForward
+	 */
 	public void setTDNARBPos(int pos, boolean rBisForward) {
 		this.RBisForward = rBisForward;
 		this.RBpos = pos;
 	}
-	/** hard-coded the RB position
-	 * 
+	/** 
+	 * @return RBpos
 	 */
 	public int getTDNARBPos() {
 		return RBpos;
 	}
 	/**
-	 * 
+	 * Sets LBpos from indexLB
 	 * @param pos
 	 * @param lBisForward
 	 */
@@ -151,12 +154,16 @@ public class SamplePrimer {
 		this.LBisForward = lBisForward;
 		this.LBpos = pos;
 	}
-	/** hard-coded the LB position
-	 * 
+	/** 
+	 * @return LBpos
 	 */
 	public int getTDNALBPos() {
 		return LBpos;
 	}
+	/**
+	 * 
+	 * @return this.LBisForward
+	 */
 	public boolean getTDNALBisForward() {
 		return this.LBisForward;
 	}

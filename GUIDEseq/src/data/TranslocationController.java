@@ -19,25 +19,27 @@ import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
 
 public class TranslocationController {
 	private HashMap<String, ArrayList<Translocation>> trans = new HashMap<String, ArrayList<Translocation>>();
-	//temporarily changed from 500 to 0.
-	public static final int MAXDIST = 10;
+	public static final int MAXDIST = 5;
+	public static final int MAXANCHORDIST = 2000;
 	private int primerStart, primerEnd;
 	public static final String LB = "GTTTACACCACAATATATCCTGCCA";
 	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA";
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
+	public static final String testName = "A00379:349:HM7WFDSXY:4:1274:28962:25254";
 	
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
 	}
-    
-	//I think this whole block needs to be altered.
+	/**
+	 * If the position is not faulty,
+	 * @param s
+	 * @return
+	 */
 	private Translocation getNearestTranslocation(SAMRecord s) {
-		if (Translocation.getPosition2(s, sp)!=-1) {
-			//pos is ok
+		if (Translocation.getPosition2(s, sp)!=-1) {  //filter for faulty positions
 			int pos = Translocation.getPosition2(s, sp);
-		
 			Translocation nearest = null;
 			int minDis = Integer.MAX_VALUE;
 			if(trans.get(s.getMateReferenceName()) == null) {
@@ -76,6 +78,8 @@ public class TranslocationController {
 		}
 		else {
 			Translocation tl = new Translocation(s, sp);
+			if(s.getReadName().contentEquals(testName)) { 
+			System.out.println("checkpoint1");}
 			//sometimes the sam is not added due to filtering of secondary alignments
 			if(tl.getNrSupportingReads()>0) {
 				ArrayList<Translocation> al = trans.get(s.getMateReferenceName());
@@ -84,6 +88,8 @@ public class TranslocationController {
 					trans.put(s.getMateReferenceName(), al);
 				}
 				al.add(tl);
+				if(s.getReadName().contentEquals(testName)) { 
+					System.out.println("checkpoint2");}
 				return tl;
 			}
 			else {
@@ -121,47 +127,29 @@ public class TranslocationController {
 			e.printStackTrace();
 		} 
 	}
-
+	/**
+	 * This adds the anchors. They can be at most 2000 bp away from the T-DNA primers. Usually they should not come close to that amount.
+	 * Maybe have to change the way to get the position in some cases. 
+	 * @param sr
+	 */
 	public void addMates(SamReader sr) {
-		int around = 500;
+		int around = MAXANCHORDIST;
 		int duplicates = 0;
 		int count = 0;
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
 				count++;
-				//System.out.println(tl.getContigMate());
 				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition1()-around, tl.getPosition1()+around, false);
-				int counter2 = 0;
-				//System.out.println(tl.getContigMate()+":"+tl.getPosition1());
-				String testName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
-					//System.out.println(srec.getReadName());
 					if(srec.getReadName().contentEquals(testName)) {
-						//System.err.println("found it"+srec.getReadName()+" "+srec.getReadLength());
 					}
 					if(srec.getContig()!=null) {
 						if(srec.getReadName().contentEquals(testName)) {
-							//System.err.println("found it still here"+srec.getReadName()+" "+srec.getCigarString());
-							//System.err.println("found it still here"+srec.getReadName()+" "+isDuplicate(srec));
-							//System.err.println("found it still here"+srec.getReadName()+" "+tl.containsRecord(srec.getReadName()));
-							
-							
 						}
-						//if first read is in, why remove the second if it is duplicate?
-						/*
-						if(tl.containsRecord(srec.getReadName())) {
-							System.out.println(srec.getDuplicateReadFlag()+" "+isDuplicate(srec));
-							if(isDuplicate(srec)) {
-								System.out.println(srec.getCigarString());
-								tl.printMate(srec);
-							}
-						*/
-						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
-							//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
-							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
+						//below duplicates are not included, only anchors (first of pair), and the read has to align primarily to the chromosome, which will remove some anchors from very small fragments, or fillers with very large perfect alignments
+						if((isDuplicate(srec)==false) && (tl.containsRecord(srec.getReadName())==true) && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) { 
 							if(srec.getReadName().contentEquals(testName)) {
-								System.err.println("found it adding"+srec.getReadName()+" "+srec.getReadLength());
 							}
 							boolean added = tl.addSam(srec);
 							if(srec.getReadName().contentEquals(testName)) {
@@ -175,33 +163,10 @@ public class TranslocationController {
 							}
 							tl.removeSam(srec);
 						}
-						//not sure if I want these
-						/*
-						else if(!isDuplicate(srec)) {
-							if(tl.isForward()) {
-								if(srec.getFirstOfPairFlag()!= sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-								else if(srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag() && srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-							}
-							else {
-								if(srec.getFirstOfPairFlag()!= sp.isFirstOfPairFlag() && srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-								else if(srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-								
-							}
-						}
-						*/
 						if(isDuplicate(srec)) {
 							duplicates++;
 						}
 					}
-					//System.out.println(counter2);
 				}
 				sri.close();
 				if(count%1000==0) {
@@ -282,168 +247,181 @@ public class TranslocationController {
     	end = index+sp.getPrimer().length();
     	primerStart = start+1;
     	primerEnd = end;
-    	System.out.println(primerStart+" "+primerEnd+" "+positiveStrand+" "+sp.getPrimer());
-    	//System.out.println("positions "+start+" - "+end);
-    	//System.out.println("["+options.getChr()+"]");
-    	//System.out.println(start);
-    	//System.out.println(end);
-    	//System.out.println(sr.hasIndex());
-	    SAMRecordIterator r = sr.query(sp.getChr(), start, end, false);
+    	System.out.println("Primerstart:" +primerStart +", Primerend:" +primerEnd +", positivestrand:"+positiveStrand +", primerseq:"+sp.getPrimer());
+	    SAMRecordIterator r = sr.iterator () ;
 	    
 	    int count = 0;
 	    int NM0Count = 0;
 	    int duplicateFlag = 0;
 	    int Ncount = 0;
-	    int NoCount = 0;
 	 
-	    String debugReadName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
         while(r.hasNext()) {
         	count++;
         	SAMRecord srec = r.next();
         	if(debug) {
         		//System.err.println("Still here");
-        		if(srec.getReadName().contentEquals(debugReadName)) {
-        			System.out.println(srec.getReadName());
-        			System.out.println(srec.getCigarString());
-        			System.out.println(srec.getContig());
-        			System.out.println(srec.toString());
-        			System.out.println(srec.getReadString());
-        			System.out.println("MATE");
+        		if(srec.getReadName().contentEquals(testName)) {
+        			System.out.println("BEFORE RCing");
+        			System.out.println("read name: " +srec.getReadName());
+        			System.out.println("CIGAR: " +srec.getCigarString());
+        			System.out.println("contig: " +srec.getContig());
+        			System.out.println("add info: " +srec.toString());
+        			System.out.println("sequence: " +srec.getReadString());
+        			System.out.println("alignment start: " +srec.getAlignmentStart());
+        			System.out.println("alignment end: " +srec.getAlignmentEnd());
+        			System.out.println("Read negative strand flag: " +srec.getReadNegativeStrandFlag());
+
+        			if (srec.getAttribute("SA") != null) {
+        				System.out.println("pos SATAg: " +getPosSATag(srec));
+        				System.out.println("sign SATag: " +getForwardSATag(srec));
+    					System.out.println("pos SATag end: " +getPosSATagEnd(srec));
+        			}
         			SAMRecord temp = sr2.queryMate(srec);
-        			System.out.println(temp.getReadName());
-        			System.out.println(temp.getCigarString());
-        			System.out.println(temp.getContig());
-        			System.out.println(temp.toString());
-        			System.out.println(temp.getReadString());
-        			System.out.println("EO MATE");
+        			System.out.println("mate name: " +temp.getReadName());
+        			System.out.println("CIGAR: " +temp.getCigarString());
+        			System.out.println("contig: " +temp.getContig());
+        			System.out.println("add info: " +temp.toString());
+        			System.out.println("sequence: " +temp.getReadString());
+        			System.out.println("alignment start: " +temp.getAlignmentStart());
+        			System.out.println("alignment end: " +temp.getAlignmentEnd());
+        			System.out.println("Read negative strand flag: " +temp.getReadNegativeStrandFlag());
+        			if (temp.getAttribute("SA") != null) {
+        				System.out.println("pos SATAg: " +getPosSATag(temp));
+        				System.out.println("sign SATag: " +getForwardSATag(temp));
+        				System.out.println("pos SATag end: " +getPosSATagEnd(temp));
+        			
+        			}
         		}
         	}
-        	//only take 0 mismatches reads
-        	//20200920 only take reads with max cigar length of 2
-        	if(Translocation.getNMis0(srec) ) {//&& srec.getCigarLength()<=2) {
-        		if(debug) {
-            		//System.err.println("Still here");
-            		if(srec.getReadName().contentEquals(debugReadName)) {
-                		System.err.println("Still here");
-            		}
-        		}
-        		NM0Count++;
-        		//chr has to be filled and unequal
-        		//take the reverse complement if we are looking at reads going reverse
-        		if(!positiveStrand) {
-        			if(debug) {
-                		//System.err.println("Still here !positiveStrand");
-                		//System.err.println(srec.getReadString());
-                	}
-        			String cigar = srec.getCigarString();
-        			boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
-        			//System.out.println("BEFORE RC "+srec.getReadNegativeStrandFlag());
-        			srec.reverseComplement();
-        			if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
-        				srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
+        	// only take 0 mismatches reads
+        	// don't take secondary alignment reads
+        	// don't take reads with no secondary alignment, all T-DNA reads are expected to have at least 2 alignments
+        	// don't take any reads that are duplicates
+        	// only take the T-DNA reads.
+        	if (srec.getAttribute("SA") != null){
+        		String SATag = (String) srec.getAttribute("SA");
+        		String[] SAList = SATag.split(",|;");
+        		int SALength = SAList.length;
+        		String contigString = SATag.split(",")[0];
+        		if((Translocation.getNMis0(srec)) && (srec.isSecondaryAlignment()==false) && (isDuplicate(srec)==false) && (srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag())){
+        				if(debug) {
+            			//System.err.println("Still here");
+            			if(srec.getReadName().contentEquals(testName)) {
+                			System.err.println("Still here");
+            			}
         			}
-        			//System.out.println("AFTER RC "+srec.getReadNegativeStrandFlag());
-        			//System.exit(0);
-        			//bug so reverse it myself
-        			Cigar tempCigar = srec.getCigar();
-        			if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
-        				Cigar rev = new Cigar();
-        				//reverse the cigar
-        				for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
-        					rev.add(tempCigar.getCigarElement(i));
+        			NM0Count++;
+        			//chr has to be filled and unequal
+        			//take the reverse complement if we are looking at reads going reverse
+        			if(srec.getReadNegativeStrandFlag()==true) {
+        				if(debug) {
+                			//System.err.println("Still here !positiveStrand");
+                			//System.err.println(srec.getReadString());
+                		}
+        				String cigar = srec.getCigarString();
+        				//boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
+        				//System.out.println("BEFORE RC "+srec.getReadNegativeStrandFlag());
+        				
+        				srec.reverseComplement();
+        				//the problem with reversing the strandflag, is that some things still depend on the strandedness even after the seq has been reversed.
+        				//if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
+        				//	srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
+        				//}
+        				//System.out.println("AFTER RC "+srec.getReadNegativeStrandFlag());
+        				//System.exit(0);
+        				//bug so reverse it myself
+        				Cigar tempCigar = srec.getCigar();
+        				if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
+        					Cigar rev = new Cigar();
+        					//reverse the cigar
+        					for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
+        						rev.add(tempCigar.getCigarElement(i));
+        					}
+        					srec.setCigar(rev);
         				}
-        				srec.setCigar(rev);
+        				//System.out.println("Made RC "+srec.getCigarString());
+        			
+        				if(srec.getReadName().contentEquals(testName)) {
+        					System.out.println("AFTER RCing");
+        					System.out.println("read name: " +srec.getReadName());
+            				System.out.println("CIGAR: " +srec.getCigarString());
+            				System.out.println("CIGAR length: " +srec.getCigarLength());
+            				System.out.println("contig: " +srec.getContig());
+            				System.out.println("contig SA tag 1: " +getContigSATag(srec));
+            				System.out.println("add info: " +srec.toString());
+            				System.out.println("sequence: " +srec.getReadString());
+            				System.out.println("alignment start: " +srec.getAlignmentStart());
+            				System.out.println("alignment end: " +srec.getAlignmentEnd());
+            				System.out.println("Read negative strand flag: " +srec.getReadNegativeStrandFlag());
+        					System.out.println("SATAg length: " +SALength);
+        					System.out.println("pos SATAg: " +getPosSATag(srec));
+        					System.out.println("sign SATag: " +getForwardSATag(srec));
+        					System.out.println("pos SATag end: " +getPosSATagEnd(srec));
+        					if (SALength > 6) {
+        						System.out.println("pos SATAg 2: " +getPosSecondSATag(srec));
+            					System.out.println("sign SATag 2: " +getForwardSecondSATag(srec));
+            					System.out.println("contig SA tag 2: " +getContigSecondSATag(srec));
+        					}
+        					
+        				}
         			}
-        			//System.out.println("Made RC "+srec.getCigarString());
-        		}
-	        	if(srec.getContig() != null && !srec.getContig().equals(srec.getMateReferenceName())) {
+        		
 	        		if(debug) {
-	        			if(srec.getReadName().contentEquals(debugReadName)) {
-	                		System.err.println("Still here2 ");
+	        			if(srec.getReadName().contentEquals(testName)) {
+	                		System.err.println("Still here2");
 	            		}
-                	}
-	        		//read should start with the primer
-		       		//if(srec.getReadString().startsWith(sp.getPrimerPart(20))) {
-	        		//System.out.println(srec.getAlignmentStart() + " " + srec.getAlignmentEnd());
-	        		//System.out.println(srec.getReadString());
-	       			if((positiveStrand && srec.getAlignmentStart()==primerStart) ||
-	       					(!positiveStrand && srec.getAlignmentEnd()==primerEnd)){
-		       			if(debug) {
-		       				if(srec.getReadName().contentEquals(debugReadName)) {
-		                		System.err.println("Still here3");
-		                		System.err.println("is duplicate "+srec.getDuplicateReadFlag());
-		                		System.err.println("is sa "+srec.isSecondaryAlignment());
-		                		System.err.println("is sa/su "+srec.isSecondaryOrSupplementary());
-		            		}
-	                	}
-		       			//System.out.println("starts correct "+srec.getReadNegativeStrandFlag() );
-		       			//System.out.println(positiveStrand);
-		       			//System.out.println(srec.getDuplicateReadFlag());
-		       			//System.out.println(srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag());
-		       			//no duplicates
-		       			
-		       			if(!isDuplicate(srec) && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag()) {// && srec.getReadNegativeStrandFlag() == positiveStrand) {
-		       				//System.out.println("adding "+srec.getReadName()+" "+ isDuplicate(srec));
-		       				if(debug) {
-			       				if(srec.getReadName().contentEquals(debugReadName)) {
-			                		System.err.println("Still here4");
-			                		System.err.println(srec.isSecondaryAlignment());
-			       				}
-		       					
-		       				}
-		       				if(srec.getReadString().contains("N")) {
-		       					Ncount++;
-		       				}
-		       				else {
-		       					NoCount++;
-		       				}
-	       					addTranslocation(srec, maxReadsPerTrans);
-		       			}
-		       			if(isDuplicate(srec)) {
-		       				duplicateFlag++;
-		       			}
-		       		}
-		       		
-	        	}
-	        	/*
-	        	else if (srec.getContig() != null && srec.getContig().equals(srec.getMateReferenceName())) {
-	        		//System.out.println(positiveStrand);
-	        		//System.out.println(srec.getAlignmentStart());
-	        		if(srec.getReadString().startsWith(options.getPrimerPart(20))) {
-	        			
-	        			int dist = Math.abs(srec.getMateAlignmentStart()-primerStart);
-		       			if(dist>500) {
-	        			
-			        		if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag() == positiveStrand) {
-			       				//System.out.println("adding");
-			       				if(debug) {
-			       					
-			       				}
-		       					Translocation tl = addTranslocation(srec);
-		       					
-		       					
-		       					
-		       					SAMRecord mate = sr2.queryMate(srec);
-
-		       					//System.out.println(srec.toString());
-		       					//System.out.println(srec.getReadString());
-		       					if(mate.getCigarString().contentEquals("299M")) {
-		       						System.out.println("####START");
-		       						//System.out.println(srec.getMateAlignmentStart());
-			       					//System.out.println(tl);
-			       					System.out.println(mate.getReadString());
-			       					System.out.println(mate.getCigarString());
-			       					System.out.println(mate.getContig()+":"+mate.getAlignmentStart()+"-"+mate.getAlignmentEnd());
-			       					System.out.println("####END");
-		       					}
-			       			}
-		       			}
 	        		}
-	        	}
-	        	*/
+	        		if (SALength == 6) {
+	        			if (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true))){
+	        				if(			((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==true)  && (srec.getAlignmentStart()==primerStart)) //e.g. A00379:349:HM7WFDSXY:4:1218:1796:29528-3 & A00379:349:HM7WFDSXY:4:2376:6524:12477-4
+	        						 || ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==true)	&& (srec.getAlignmentEnd()==primerEnd)) //A00379:349:HM7WFDSXY:4:1122:10800:11553-4 
+	        						 
+	        						 || ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getForwardSATag(srec)==false) && (getEndPosSATag(srec)==primerEnd)) //A00379:349:HM7WFDSXY:4:2232:31837:21746-2 & A00379:349:HM7WFDSXY:4:1157:11659:10755-2
+	        						 || ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getForwardSATag(srec)==true)  && (getPosSATag(srec)==primerStart)) //A00379:349:HM7WFDSXY:4:1258:25102:13244-2 & A00379:349:HM7WFDSXY:4:1347:6406:9392-2
+	        						 
+	        						 || ((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getForwardSATag(srec)==true)  && (getPosSATag(srec)==primerStart)) //A00379:349:HM7WFDSXY:4:1507:17879:27038-1
+	        						 || ((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getForwardSATag(srec)==false)  && (getPosSATagEnd(srec)==primerEnd))) //A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
+	        					
+	        					//maybe above there should be a filter to remove reads with cigarlength of 3, like in this case: A00379:349:HM7WFDSXY:4:1303:20781:4382-3 (BL30_LZB1_RB_3_22700768)
+	        					//although checking whether it starts with the primer appears enough.
+	        				{
+	        					if(debug) {
+	        						if(srec.getReadName().contentEquals(testName)) {
+	        							System.err.println("Still here3");
+	        						}
+	        					}
+	        					if(srec.getReadString().contains("N")) {
+	        						Ncount++;
+	        					}
+	        					addTranslocation(srec, maxReadsPerTrans);		       					       			
+	        				}
+	        			}
+	        		}//negative strand, alignment end is the end of the primer.
+	        		if (SALength > 6) {
+	        			if (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true) && (sp.getChr().equals(getContigSecondSATag(srec))==true))){
+	        				if (	   ((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==true) && (srec.getAlignmentStart()==primerStart)) //e.g. A00379:349:HM7WFDSXY:4:1610:23384:24330-4
+	        						|| ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==true) && (srec.getAlignmentEnd()==primerEnd)) // A00379:349:HM7WFDSXY:4:1226:10945:24862-3 & A00379:349:HM7WFDSXY:4:1223:26955:6433-3 & A00379:349:HM7WFDSXY:4:1309:17815:31908-3
+	        						|| ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==true) && (srec.getCigarLength()==3) && (sp.getChr().equals(getContigSecondSATag(srec))==true) && (getForwardSecondSATag(srec)==true) && (getPosSATag2(srec)==primerStart)) //A00379:349:HM7WFDSXY:4:2642:1108:31344-3
+	        						){
+	        					if(debug) {
+	        						if(srec.getReadName().contentEquals(testName)) {
+	        							System.err.println("Still here4");
+	        						}
+	        					}
+	        					if(srec.getReadString().contains("N")) {
+	        						Ncount++;
+	        					}
+	        					addTranslocation(srec, maxReadsPerTrans);
+	        				}
+	        			}
+	        		}
+        		}
+        		if(isDuplicate(srec)) {
+       				duplicateFlag++;
+       			}
         	}
         	if(count%1000000==0) {
-        		System.out.println("Already processed "+count+" reads, NM0 reads "+NM0Count+" Ncount "+Ncount+" Nocount: "+NoCount);
+        		System.out.println("Already processed "+count+" reads, NM0 reads: "+NM0Count+", Ncount: "+Ncount);
         		//break;
         	}
         	if(getTotalTranslocations()==maxTrans) {
@@ -506,6 +484,98 @@ public class TranslocationController {
 			count+= trans.get(key).size();
 		}
 		return count;
+	}
+	/**
+	 * @param srec
+	 * @return the start of the first secondary alignment
+	 */
+	private static int getPosSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[1];
+		return Integer.parseInt(intString);
+	}
+	private static int getPosSATag2(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[7];
+		return Integer.parseInt(intString);
+	}
+	private static int getEndPosSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		int tempPos = Integer.parseInt(SATag.split(",|;")[1]);
+		String SACigar = SATag.split(",|;")[3];
+		int indexFirstM = SACigar.indexOf("M");
+		int indexFirstS = SACigar.indexOf("S");
+		String sASign = SATag.split(",|;")[2];
+		int pos = -1;
+		if ((indexFirstM > indexFirstS) && (sASign.equals("-")==true)) {
+			int saLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+			pos = tempPos+saLength-1;
+		}
+		//add something in case the order of M and S is different or when the strand is +
+		return pos;
+	}
+	private static String getContigSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		return SATag.split(",|;")[0];
+	}
+	private static String getContigSecondSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		return SATag.split(",|;")[6];
+	}
+	private static int getPosSecondSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[7];
+		return Integer.parseInt(intString);
+	}
+	/**
+	 * @param srec
+	 * @return the end of the first secondary alignment.
+	 */
+	private static int getPosSATagEnd(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[1];
+		int pos = Integer.parseInt(intString);
+		String cigarString = SATag.split(",|;")[3];
+		int indexFirstM = cigarString.indexOf("M");
+		int indexFirstS = cigarString.indexOf("S");
+		//int indexFirstH = cigarString.indexOf("H");
+		if (indexFirstS < indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		if (indexFirstS > indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(0, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		int position =-1;
+		return position;
+	}
+
+	/**
+	 * @param srec
+	 * @return the forward or reverse flags from the first entry in the SA field.
+	 */
+	private static boolean getForwardSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String signString = SATag.split(",|;")[2];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
+	private static boolean getForwardSecondSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String signString = SATag.split(",|;")[8];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
 	}
 	public ArrayList<Translocation> getTranslocations() {
 		ArrayList<Translocation> al = new ArrayList<Translocation>();
@@ -624,11 +694,6 @@ public class TranslocationController {
 	    	System.err.println("LB: "+indexLB);
 		    System.err.println("RB: "+indexRB);
 		    System.exit(0);
-	    	//following 4 lines are obsolete?
-		    //LBisForward = false;
-	    	//RBisForward = true;
-	    	//indexLB = 1;
-		   // indexRB = TDNA.length();
 	    }
 	    System.out.println("Setting LB "+indexLB+" "+LBisForward);
 	    System.out.println("Setting RB "+indexRB+" "+RBisForward);

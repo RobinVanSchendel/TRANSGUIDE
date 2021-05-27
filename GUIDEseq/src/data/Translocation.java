@@ -61,6 +61,7 @@ public class Translocation {
 	private String warning;
 	private InsertionSolverTwoSides is;
 	private Consensus TDNAcons;
+	private Consensus TDNAfullcons;
 	private Consensus genomeCons;
 	private Consensus genomePrimerCons;
 	private ConsensusInt genomeConsInt;
@@ -69,7 +70,8 @@ public class Translocation {
 	private String sampleNonMatchingDNA = "";
 	private boolean multipleEvents = false;
 	private int countLBWeird;
-
+	public static final String testName = "A00379:349:HM7WFDSXY:4:1274:28962:25254";
+	
 	/**
 	 * Constructor to make an instance of the Translocation class. Populate "sams" with reads (after some filtering and reverse complementing), and "names" with names of those reads.
 	 * @param s
@@ -91,20 +93,16 @@ public class Translocation {
 	 * @return true or false
 	 */
 	public boolean addSam(SAMRecord s) {
-		
-		if((s.getContig().equals(sp.getChr())==true) && (getContigSATagIsNotContig(s, sp.getChr())==false) && (getContigSATagIsNotContig2(s, sp.getChr())==false)){
+		if(((s.getContig().equals(sp.getChr())==true) && (getContigSATagIsContig(s, sp.getChr())==true) && (getContigSATagIsContig2(s, sp.getChr())==true)) || (s.isSecondaryAlignment()==true)){
+			if(s.getReadName().contentEquals(testName)) { 
+			System.err.println("The read "+s.getReadName()+" with CIGAR "+s.getCigarString()+" has not been added");}
 			return false;
 		}
 		boolean takeRC = false;
-		if(!s.getContig().contentEquals(sp.getChr()) && s.getReadNegativeStrandFlag()==false 
-				&& s.getFirstOfPairFlag()!=sp.isFirstOfPairFlag()) {
+		// only take RC of anchors if necessary, because this already happened for T-DNA reads.
+		if((s.getFirstOfPairFlag()!=sp.isFirstOfPairFlag()) && (s.getReadNegativeStrandFlag()==false)) {
 			takeRC = true;
 		}
-		if(!s.getContig().contentEquals(sp.getChr()) && s.getReadNegativeStrandFlag()==true 
-				&& s.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
-			takeRC = true;
-		}
-		String testName = "A00379:349:HM7WFDSXY:4:2613:18276:3740";
 		if(s.getReadName().contentEquals(testName)) {
 			System.err.println("added "+s.getReadString());
 			System.err.println("added "+s.getCigarString());
@@ -160,7 +158,7 @@ public class Translocation {
 		return srec;
 	}
 	/**
-	 * @return number of elements in "sams"
+	 * @return number of reads. This should be the sum of anchors and T-DNA reads.
 	 */
 	public int getNrSupportingReads() {
 		return sams.size();
@@ -176,7 +174,7 @@ public class Translocation {
 	/**An anchor is defined as the read which does not contain the initial integration
 	 * read. In our T-DNA experiments P7 is the T-DNA read.
 	 * 
-	 * Count #reads that perfectly map to the genome.
+	 * Count #reads that perfectly map to the genome. Make a separate count of the anchors that align at least the length of "anchorlength" to the genome.
 	 * NM = 0
 	 * 151M (dependendent on read length) 
 	 * MAPQ>50
@@ -238,32 +236,8 @@ public class Translocation {
 		*/
 		return 0;
 	}
-	/**
-	 * Count the number of records in "sams" that are not secondary alignments
-	 * @return count
-	 */
-	public int getSizePrimary() {
-		int count = 0;
-		for(SAMRecord s: sams) {
-			if(!s.isSecondaryAlignment()) {
-				count++;
-			}
-		}
-		return count;
-	}
-	/**
-	 * Count the number of records in "sams" that are secondary alignments
-	 * @return count
-	 */
-	public int getSizeSecondary() {
-		int count = 0;
-		for(SAMRecord s: sams) {
-			if(s.isSecondaryAlignment()) {
-				count++;
-			}
-		}
-		return count;
-	}
+
+
 	/**
 	 * @return StringBuffer "sb" containing headers.
 	 */
@@ -284,8 +258,6 @@ public class Translocation {
 		sb.append("NrSupportJunctionHQ").append(s);
 		sb.append("NrNotSupportJunctionGQ").append(s);
 		sb.append("countLBWeird").append(s);
-		sb.append("NrPrimaryAlignment").append(s);
-		sb.append("NrSecondaryAlignment").append(s);
 		sb.append("Chr").append(s);
 		sb.append("Position").append(s);
 		sb.append("RealPosition").append(s);
@@ -327,9 +299,7 @@ public class Translocation {
 		sb.append("warning").append(s);
 		sb.append("isOK").append(s);
 		sb.append("getTDNASequenceDiffReads").append(s);
-		sb.append("getTDNASequenceDiffReadsHighestContributor").append(s);
-		sb.append("getTDNASequenceDiffReadsHighestContributormax").append(s);
-		sb.append("getTDNASequenceDiffReadsHighestContributortotal");
+		sb.append("getFractionHighestContributorToConsensus");
 		
 		return sb.toString();
 	}
@@ -352,8 +322,6 @@ public class Translocation {
 		sb.append(getNrSupportJunction(true)).append(s);
 		sb.append(this.getNrNotSupportJunction(true)).append(s);
 		sb.append(countLBWeird).append(s);
-		sb.append(getSizePrimary()).append(s);
-		sb.append(getSizeSecondary()).append(s);
 		sb.append(getContigMate()).append(s);
 		sb.append(getPosition1()).append(s);
 		sb.append(getRealPosition()).append(s);
@@ -412,36 +380,15 @@ public class Translocation {
 		sb.append(warning).append(s);
 		sb.append(isOK()).append(s);
 		sb.append(getTDNASequenceDiffReads()).append(s);
-		sb.append(getTDNASequenceDiffReadsHighestContributor()).append(s);
-		sb.append(getTDNASequenceDiffReadsHighestContributormax()).append(s);
-		sb.append(getTDNASequenceDiffReadsHighestContributortotal());
-		//sb.append(getFillerSequenceDiffReads());
-		//sb.append(getFillerSequenceDiffReadsHighestContributor()).append(s);
-		
-		//sb.append("\n");
-
-		//for(SAMRecord sam: sams) {
-			//sb.append("\t"+sam.getSAMString());
-		//}
+		sb.append(getFractionHighestContributorToConsensus());
 		
 		String ret = sb.toString();
-		//long end = System.currentTimeMillis();
-		//long duration = end-start;
-		/*
-		System.out.println(duration +" nrSams: "+this.sams.size());
-		if(this.sams.size()==7441) {
-			for(SAMRecord sam: sams) {
-				System.out.println(sam.getReadString());
-				System.out.println(sam.getContig()+":"+sam.getAlignmentStart()+"-"+sam.getAlignmentEnd());
-			}
-			System.out.println(sp.getTDNALBPos());
-			System.out.println(sp.getTDNARBPos());
-			System.exit(0);
-		}
-		*/
+
 		return ret;
 	}
-
+	/**
+	 * @return the length between the translocation position, and the furthest base from the furthest read that does not primarily match to the plasmid
+	 */
 	private int getTailSize() {
 		int distance = 0;
 		int curPosition = this.getRealPosition();
@@ -502,34 +449,6 @@ public class Translocation {
 	private String getTDNASequenceNew() {
 		return this.TDNAcons.getConsensusString();
 	}
-	private String getFillerSequenceDiffReads() {
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		String tdna = this.getTDNASequence();
-		//System.out.println("getFillerSequenceDiffReads");
-		//System.out.println(tdna);
-		ArrayList<String> al = new ArrayList<String>();
-		for(SAMRecord sr: sams) {
-			if(!sr.getContig().contentEquals(sp.getChr())) {
-				String part = getSoftClippedPart(sr);
-				CigarElement ce = sr.getCigar().getFirstCigarElement();
-				//take the RC here so that the filler is correctly aligned
-				//if(ce.getOperator() == CigarOperator.S) {
-				//	String part = Utils.reverseComplement(part);
-				
-				//al.add(Utils.reverseComplement(part));
-				//System.out.println("\t"+sr.getCigarString()+"\t"+sr.getReadString());
-//				System.out.println(sr.getReadName());
-	//			System.out.println(part);
-			}
-		}
-		for(String s: al) {
-			//System.out.println(s);
-		}
-		//Integer.parseInt("s");
-		//System.exit(0);
-		
-		return null;
-	}
 	private static String getSoftClippedPart(SAMRecord sr) {
 		if(sr.getCigarLength()==2) {
 			CigarElement ce = sr.getCigar().getCigarElement(0);
@@ -543,36 +462,93 @@ public class Translocation {
 		}
 		return null;
 	}
-	private static String getMatchedPart(SAMRecord sr, boolean replaceWithSpaces) {
-		if(sr.getCigarLength()==2) {
+	/**I believe this method is not completely alright yet. 
+	 * @param sr
+	 * @param replaceWithSpaces
+	 * @param sp
+	 * @return the part that matches with the T-DNA, excluding the genomic part or the filler.
+	 */
+	private static String getMatchedPart(SAMRecord sr, boolean replaceWithSpaces, SamplePrimer sp) {
+		if (sr.getCigarLength()==2) {
 			CigarElement ce = sr.getCigar().getCigarElement(0);
 			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			if(ce.getOperator() == CigarOperator.S && ce2.getOperator() == CigarOperator.M) {
-				String sPart = sr.getReadString().substring(0, ce.getLength());
-				if(replaceWithSpaces) {
-					return Translocation.getSpaces(sPart.length()) +  sr.getReadString().substring(ce.getLength());
-				}
-				return sr.getReadString().substring(ce.getLength());
-			}
-			else if(ce.getOperator() == CigarOperator.M && ce2.getOperator() == CigarOperator.S) {
+			// if the T-DNA read primarily aligned to the T-DNA, and there is one secondary alignment to the genome
+			if ((sr.getContig().equals(sp.getChr())==true) && (ce.getOperator() == CigarOperator.M) && (ce2.getOperator() == CigarOperator.S)) {
 				String mPart = sr.getReadString().substring(ce.getLength());
 				if(replaceWithSpaces) {
 					return sr.getReadString().substring(0,ce.getLength()) + Translocation.getSpaces(mPart.length()) ;
 				}
 				return sr.getReadString().substring(0,ce.getLength());
 			}
-			//hard clipped can be returned as is
-			else if(ce.getOperator()==CigarOperator.H || ce2.getOperator()==CigarOperator.H) {
-				return sr.getReadString();
+			// if the T-DNA read primarily aligns to the genome. Note that we have to go into the SAtag, otherwise we get a problem if there is a filler or homology
+			//there are some different possibilities. If the alignment is reverse, the matching part will be the second part of the CIGAR instead of the first.
+			if ((sr.getContig().equals(sp.getChr())==false) && (sr.getAttribute("SA")!=null) && (getContigSATagIsContig(sr, sp.getChr())==true)) {
+				String SATag = (String) sr.getAttribute("SA");
+				String SACigar = SATag.split(",|;")[3];
+				int indexFirstM = SACigar.indexOf("M");
+				int indexFirstS = SACigar.indexOf("S");
+				String sASign = SATag.split(",|;")[2];
+				if ((indexFirstM < indexFirstS) && (sASign.equals("+")==true)) {
+					int ilengthTDNA = Integer.parseInt(SACigar.substring(0, indexFirstM));
+					String mPart = sr.getReadString().substring(ilengthTDNA);
+					if(replaceWithSpaces) {
+						return sr.getReadString().substring(0,ilengthTDNA) + Translocation.getSpaces(mPart.length()) ;
+					}
+					return sr.getReadString().substring(0,ilengthTDNA);
+				}
+				if ((indexFirstM > indexFirstS) && (sASign.equals("-")==true)) { //A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
+					int ilengthTDNA = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+					String mPart = sr.getReadString().substring(ilengthTDNA);
+					if(replaceWithSpaces) {
+						return sr.getReadString().substring(0,ilengthTDNA) + Translocation.getSpaces(mPart.length()) ;
+					}
+					return sr.getReadString().substring(0,ilengthTDNA);
+				}
+				
 			}
-			System.err.println("weird reads..."+sr.getCigarString());
 		}
-		else if(sr.getCigarLength()==1) {
-			CigarElement ce = sr.getCigar().getCigarElement(0);
-			if(ce.getOperator() == CigarOperator.M) {
-				return sr.getReadString();
+		if ((sr.getCigarLength()==3) && (sr.getAttribute("SA")!=null)){
+			String SATag = (String) sr.getAttribute("SA");
+    		String[] SAList = SATag.split(",|;");
+			int SALength = SAList.length;
+			String SACigar = SATag.split(",|;")[3];
+			int indexFirstM = SACigar.indexOf("M");
+			int indexFirstS = SACigar.indexOf("S");
+			//there's also a possibility that the filler is derived primarily from T-DNA, and that this alignment is largest and thus the primary.
+			if ((SALength ==6) && (indexFirstS < indexFirstM)) {
+				if ((sr.getReadNegativeStrandFlag()==true) && (sr.getContig().equals(sp.getChr())==true)) {
+					//A00379:349:HM7WFDSXY:4:2452:8178:4413-3 (BL25_LZB1_LB_5_224262)
+					//this read pair does not contain the correct information due to a faulty primary alignment. So don't include it.
+					return null;
+				}
+				if (sr.getReadNegativeStrandFlag()==false) {
+					String slengthTDNA = SACigar.substring(indexFirstS+1, indexFirstM);
+					int ilengthTDNA = Integer.parseInt(slengthTDNA);
+					String mPart = sr.getReadString().substring(ilengthTDNA);
+					if(replaceWithSpaces) {
+						return sr.getReadString().substring(0,ilengthTDNA) + Translocation.getSpaces(mPart.length()) ;
+					}
+					return sr.getReadString().substring(0,ilengthTDNA);
+				}
 			}
-		}
+			//there is a similar plasmid filler possibility:
+			if ((SALength >6) && (indexFirstS < indexFirstM)) {
+				String SACigar2 = SATag.split(",|;")[9];
+				int indexFirstS2 = SACigar2.indexOf("S");
+				int indexFirstM2 = SACigar2.indexOf("M");
+				if (indexFirstS2 > indexFirstM2) {
+					String slengthTDNA = SACigar2.substring(0, indexFirstM2);
+					int ilengthTDNA = Integer.parseInt(slengthTDNA);
+					String mPart = sr.getReadString().substring(ilengthTDNA);
+					if(replaceWithSpaces) {
+						return sr.getReadString().substring(0,ilengthTDNA) + Translocation.getSpaces(mPart.length()) ;
+					}
+					return sr.getReadString().substring(0,ilengthTDNA);
+				}
+			}
+		}// note: a lot of reads end up here, which is not good. I need to really try to find all possibilities and streamline the code for this block
+		if(sr.getReadName().contentEquals(testName)) { 
+		System.err.println("The T-DNA part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");}
 		return null;
 	}
 	private static String getSpaces(int length) {
@@ -692,34 +668,62 @@ public class Translocation {
 		int RBPos = sp.getTDNARBPos();
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
-			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(sp.getChr())) {
-				if(!sp.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = sam.getAlignmentEnd()-RBPos;
-					posA.add(distance);
+			if(sam.getReadString().startsWith(seq) && (sam.getFirstOfPairFlag()==false)) {
+				if (sam.getCigarLength()==2) {
+				//System.out.println(sam.getReadNegativeStrandFlag());
+				//System.out.println(seq);
+				if (sam.getContig().equals(sp.getChr())){
+					if ((sp.getTDNARBisForward()==false) && (sam.getReadNegativeStrandFlag()==true)) { //
+						return Integer.MAX_VALUE;
+					}
+					if ((sp.getTDNARBisForward()==false) && (sam.getReadNegativeStrandFlag()==false)) { //A00379:349:HM7WFDSXY:4:1610:23384:24330-4 & A00379:349:HM7WFDSXY:4:2158:11451:16313 (BL29_LZB2_RB_1_30044710) & A00379:349:HM7WFDSXY:4:1218:1796:29528-3 (BL29_LZB2_RB_1_27525504)
+						int distance = (sam.getAlignmentEnd())-RBPos;
+						posA.add(distance);
+					}
+					if ((sp.getTDNARBisForward()==true) && (sam.getReadNegativeStrandFlag()==true) ) { //A00379:349:HM7WFDSXY:4:1443:4155:21120-3 (BL25_LZB1_RB_2_7137561)
+						int distance = (RBPos-sam.getAlignmentStart());
+						posA.add(distance);
+						
+					}
+					if ((sp.getTDNARBisForward()==true) && (sam.getReadNegativeStrandFlag()==false) ) {
+						return Integer.MAX_VALUE;
+					}
 				}
-				else if(sp.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = RBPos-sam.getAlignmentStart();
-					posA.add(distance);
-				}
-				else {
-					//Probably better to know if sample is directed at LB or RB
-					return Integer.MAX_VALUE;
-					/*
-					System.err.println(sp.getTDNARBisForward());
-					System.err.println(sp.getPrimer());
-					System.err.println(sam.getReadNegativeStrandFlag());
-					System.err.println(sam.getReadString());
-					System.err.println("RB: Some logical error in my thinking...");
-					System.exit(0);
-					*/
+				if (sam.getContig().equals(sp.getChr())==false){
+					if ((sp.getTDNARBisForward()==false) && (getForwardSATag(sam)==true) ) { //A00379:349:HM7WFDSXY:4:1258:25102:13244-2 (BL29_LZB2_RB_1_30044710)
+						int distance = (getPosSATagEnd(sam)-(RBPos+1));
+						posA.add(distance);
+					}
+					if ((sp.getTDNARBisForward()==false) && (getForwardSATag(sam)==false) ) { //
+						return Integer.MAX_VALUE;
+					}
+					if ((sp.getTDNARBisForward()==true) && (getForwardSATag(sam)==true) ) { //
+						return Integer.MAX_VALUE;
+					}
+					if ((sp.getTDNARBisForward()==true) && (getForwardSATag(sam)==false) ) {//A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
+						int distance = RBPos-(getPosSATag(sam));
+						posA.add(distance);
+					}
 				}
 			}
+				if (sam.getCigarLength()==3) {   
+					if ((getSALength(sam)==6) && (sam.getContig().equals(sp.getChr())==false) && (getForwardSATag(sam)==true)) {//A00379:349:HM7WFDSXY:4:1347:6406:9392-2 (BL29_LZB2_RB_1_27525504)
+						int distance = (getPosSATagEnd(sam)-RBPos);
+						posA.add(distance);
+					}
+				}
+			}
+			
+			
 		}
 		if(posA.size()>0) {
 			return consensusInt(posA);
 		}
 		return Integer.MIN_VALUE;
 	}
+	/**
+	 * @return this.getTDNAsequence
+	 */
 	private String getTDNASequence() {
 		return this.getTDNASequence(false);
 	}
@@ -893,6 +897,9 @@ public class Translocation {
 	private String getHomology() {
 		return this.hom;
 	}
+	/**
+	 * @return this.filler
+	 */
 	private String getFiller() {
 		return this.filler;
 	}
@@ -940,30 +947,45 @@ public class Translocation {
 		int LBPos = sp.getTDNALBPos();
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
-			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(sp.getChr())) {
+			if(sam.getReadString().startsWith(seq) && (sam.getFirstOfPairFlag()==false)) {
+				if (sam.getCigarLength()==2) {
 				//System.out.println(sam.getReadNegativeStrandFlag());
 				//System.out.println(seq);
-				
-				if(sp.getTDNALBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = sam.getAlignmentEnd()-LBPos;
-					posA.add(distance);
+				if (sam.getContig().equals(sp.getChr())){
+					if ((sp.getTDNALBisForward()==false) && (sam.getReadNegativeStrandFlag()==true)) { //A00379:349:HM7WFDSXY:4:1223:26955:6433-3 (BL11_LB_3_7326556) & A00379:349:HM7WFDSXY:4:1236:21902:28307-3(BL11_LB_5_3062557) & //A00379:349:HM7WFDSXY:4:1226:10945:24862-3 (BL11_LB_2_9027604)
+						int distance = LBPos-(sam.getAlignmentStart());
+						posA.add(distance);
+					}
+					if ((sp.getTDNALBisForward()==false) && (sam.getReadNegativeStrandFlag()==false)) { //
+						return Integer.MAX_VALUE;
+					}
+					if (sp.getTDNALBisForward() && (sam.getReadNegativeStrandFlag()==true) ) { //
+						return Integer.MAX_VALUE;
+					}
+					if ((sp.getTDNALBisForward()==true) && (sam.getReadNegativeStrandFlag()==false)) {//A00379:290:HM7LNDSXY:4:2231:24406:25254-3 & A00379:349:HM7WFDSXY:4:1126:6153:1376-3 (BL25_LZB1_LB_5_224262)
+						int distance = (sam.getAlignmentEnd()-LBPos);
+						posA.add(distance);
+					}
 				}
-				else if(!sp.getTDNALBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = LBPos-sam.getAlignmentStart();
-					posA.add(distance);
+				if (sam.getContig().equals(sp.getChr())==false){
+					if (!sp.getTDNALBisForward() && (getForwardSATag(sam)==false) ) { //A00379:349:HM7WFDSXY:4:1157:11659:10755-2 (BL11_LB_2_9027604) & //A00379:349:HM7WFDSXY:4:1163:13593:24189-2 (BL11_LB_1_1717134)
+						int distance = LBPos-(getPosSATag(sam));
+						posA.add(distance);
+					}
+					if (!sp.getTDNALBisForward() && (getForwardSATag(sam)==true) ) { //\
+						return Integer.MAX_VALUE;
+					}
+					if (sp.getTDNALBisForward() && (getForwardSATag(sam)==false) ) { //
+						return Integer.MAX_VALUE;
+					}
+					if (sp.getTDNALBisForward() && (getForwardSATag(sam)==true) ) { //
+						int distance = (getPosSATagEnd(sam))-LBPos;
+						posA.add(distance);
+					}
 				}
-				else {
-					//probably this is a read at the RB side
+			}
+				if (sam.getCigarLength()==3) {   //I need to set something for the special case that there are 2 T-DNA alignments.
 					return Integer.MAX_VALUE;
-					/*
-					System.err.println(sp.getTDNALBisForward());
-					System.err.println(sp.getPrimer());
-					System.err.println(sam.getReadNegativeStrandFlag());
-					System.err.println(sam.getReadString());
-					
-					System.err.println("LB: Some logical erro in my thinking...");
-					System.exit(0);
-					*/
 				}
 			}
 		}
@@ -1179,312 +1201,116 @@ public class Translocation {
 		return seqsDiff.size()+"|"+total+"|"+highestTwo;
 	}
 	/**
-	 * If read describes the primary alignment and is primarily aligning to plasmid, 
-	 * if not: the operator of the first cigar element is not M and number of cigar elements is 2
-	 * extract part of the sequence that is aligned to the plasmid and add to "seqsDiff". This object collects the alignment segments.
-	 * if secondary alignment, and primarily aligning to plasmid, put the full sequence to "seqsDiff".
-	 * Return the most often occurring segment divided by the total.
-	 * @return fraction of T-DNA segments that occur the most often at this junction.
+	 * This method calculates the consensus sequence of the junction bases solely on T-DNA reads. Then it calculates which fraction is the highest contributor.
+	 * There is still an issue that the ends may have the adapter sequence when the fragments were short originally. These need to be removed.
+	 * @return fraction of T-DNA reads that contribute to the consensus
 	 */
-	private double getTDNASequenceDiffReadsHighestContributor(){
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		//simplest case if second in pair and primary alignment
-		
-		for(SAMRecord sam: sams) {
-			if(!sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				//up unto the M
-				CigarElement ce = sam.getCigar().getCigarElement(0);
-				//always correct?
-				if(ce.getOperator() != CigarOperator.M && sam.getCigar().numCigarElements() == 2) {
-					//System.err.println("bug still here");
-					//System.out.println(sam.getCigarString());
-					//System.out.println(sam.getReadString());
-				}
-				else {
-					int pos = ce.getLength();
-					String seq = sam.getReadString().substring(0, pos); 
-					if(!seqsDiff.containsKey(seq)) {
-						seqsDiff.put(seq, 0);
-					}
-					seqsDiff.put(seq,seqsDiff.get(seq)+1);
-				}
-			}
-			//most go here!
-			if(sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				String seq = sam.getReadString();
-				if(!seqsDiff.containsKey(seq)) {
-					seqsDiff.put(seq, 0);
-				}
-				seqsDiff.put(seq,seqsDiff.get(seq)+1);
+	private double getFractionHighestContributorToConsensus(){
+		for(SAMRecord sr: sams) {
+			if((sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) && (sr.getReadString().startsWith(sp.getPrimer()))) {
+				//if (sr.getReadString().endsWith("AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT")) {
+				//	sr.getReadString.().getmat
+				//}
+				//else {
+				//	String readsequence = sr.getReadString();
+				//	TDNAfullcons.add(readsequence);
+				//}
 			}
 		}
-		double total = 0;
-		int max = 0;
-		for(String key: seqsDiff.keySet()) {
-			total+= seqsDiff.get(key);
-			if(seqsDiff.get(key)>max) {
-				max = seqsDiff.get(key);
-			}
-		}
-		if(total>0) {
-			return max/total;
-		}
-		return -1;
+		return TDNAfullcons.getMostRepeatedStringFraction();
 	}
+
 	/**
-	 * working...
+	 * note this method should be nearly the same as getMatchedPart. Make sure to pass changes to both.
+	 * @param debug
+	 * @return consensus T-DNA sequence from T-DNA reads. 
 	 */
-	private double getTDNASequenceDiffReadsHighestContributormax(){
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		for(SAMRecord sam: sams) {
-			//only take the second of pair reads
-			if((sam.getFirstOfPairFlag()==false) && (sam.getAttribute("SA")!=null) && (sam.isSecondaryAlignment()==false)){
-				String SATag = (String) sam.getAttribute("SA");
-				String[] SAList = SATag.split(",|;");
-				int SALength = SAList.length;
-				String contigString = SATag.split(",|;")[0];
-				String signString = SATag.split(",|;")[2];
-				//if the primarily alignment is to the plasmid
-				if(sam.getContig().equals(sp.getChr())==true) {
-					//if the first contig in the SA tag is not the plasmid
-					if (contigString != sp.getChr()){
-						String clippedString = SATag.split(",|;")[3];
-						int indexFirstS = clippedString.indexOf("S");
-						int indexLastS = clippedString.lastIndexOf("S");
-						int indexM = clippedString.indexOf("M");
-						//forward alignment and check whether the configuration is ##S##M or ##S##M##S
-						if ((indexFirstS != -1) && (signString != "-") && (indexM != -1) && (indexM>indexFirstS)) {
-							String posCS = clippedString.substring(0, indexFirstS);
-							int pos = Integer.parseInt(posCS);
-							String seq = sam.getReadString().substring(0, pos); 
-							if(!seqsDiff.containsKey(seq)) {
-								seqsDiff.put(seq, 0);
-							}
-							seqsDiff.put(seq,seqsDiff.get(seq)+1);
-						}
-						//reverse alignment and check whether the configuration is ##M##S or ##S##M##S
-						if ((indexLastS != -1) && (signString == "-") && (indexM != -1) && (indexM<indexLastS)) {
-							String posCS = clippedString.substring(indexM, indexLastS);
-							int pos = Integer.parseInt(posCS);
-							String seq = sam.getReadString().substring(0, pos); 
-							if(!seqsDiff.containsKey(seq)) {
-								seqsDiff.put(seq, 0);
-							}
-							seqsDiff.put(seq,seqsDiff.get(seq)+1);
-						}
-					}
-					//if the first contig in the SA tag is the plasmid and if the SAtag has at least two alignments listed
-					else if (SALength >=7) {
-						String contigString2 = SATag.split(",|;")[6];
-						String signString2 = SATag.split(",|;")[8];
-						if (contigString2 != sp.getChr()) {
-							String clippedString = SATag.split(",|;")[9];
-							int indexFirstS = clippedString.indexOf("S");
-							int indexLastS = clippedString.lastIndexOf("S");
-							int indexM = clippedString.indexOf("M");
-							if ((indexFirstS != -1) && (signString2 != "-")) {
-								String posCS = clippedString.substring(0, indexFirstS);
-								int pos = Integer.parseInt(posCS);
-								String seq = sam.getReadString().substring(0, pos); 
-								if(!seqsDiff.containsKey(seq)) {
-									seqsDiff.put(seq, 0);
-								}
-								seqsDiff.put(seq,seqsDiff.get(seq)+1);
-							}
-							if ((indexLastS != -1) && (signString2 == "-") && (indexM != -1)) {
-								String posCS = clippedString.substring(indexM, indexLastS);
-								int pos = Integer.parseInt(posCS);
-								String seq = sam.getReadString().substring(0, pos); 
-								if(!seqsDiff.containsKey(seq)) {
-									seqsDiff.put(seq, 0);
-								}
-								seqsDiff.put(seq,seqsDiff.get(seq)+1);
-							}
-						}	
-					}
-				}	
-				//if the primary alignment is to the genome
-				if(sam.getContig().equals(sp.getChr())==false) {
-					CigarElement ce = sam.getCigar().getCigarElement((sam.getCigarLength()-1));
-					if((ce.getOperator() == CigarOperator.S) || (ce.getOperator() == CigarOperator.H)) {
-						int pos = ce.getLength();
-						String seq = sam.getReadString().substring(0, pos);
-						if(!seqsDiff.containsKey(seq)) {
-							seqsDiff.put(seq, 0);
-						}
-							seqsDiff.put(seq,seqsDiff.get(seq)+1);
-					}	
-				}
-			}
-		}
-		double total = 0;
-		int max = 0;
-		for(String key: seqsDiff.keySet()) {
-			total+= seqsDiff.get(key);
-			if(seqsDiff.get(key)>max) {
-				max = seqsDiff.get(key);
-			}
-		}
-		if(total>0) {
-			return max;
-		}
-		return -1;
-	}
-	private double getTDNASequenceDiffReadsHighestContributortotal(){
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		for(SAMRecord sam: sams) {
-			//only take the second of pair reads
-			if((sam.getFirstOfPairFlag()==false) && (sam.getAttribute("SA")!=null) && (sam.isSecondaryAlignment()==false)){
-				String SATag = (String) sam.getAttribute("SA");
-				String[] SAList = SATag.split(",|;");
-				int SALength = SAList.length;
-				String contigString = SATag.split(",|;")[0];
-				String signString = SATag.split(",|;")[2];
-				//if the primarily alignment is to the plasmid
-				if(sam.getContig().equals(sp.getChr())==true) {
-					//if the first contig in the SA tag is not the plasmid
-					if (contigString != sp.getChr()){
-						String clippedString = SATag.split(",|;")[3];
-						int indexFirstS = clippedString.indexOf("S");
-						int indexLastS = clippedString.lastIndexOf("S");
-						int indexM = clippedString.indexOf("M");
-						//forward alignment and check whether the configuration is ##S##M or ##S##M##S
-						if ((indexFirstS != -1) && (signString != "-") && (indexM != -1) && (indexM>indexFirstS)) {
-							String posCS = clippedString.substring(0, indexFirstS);
-							int pos = Integer.parseInt(posCS);
-							String seq = sam.getReadString().substring(0, pos); 
-							if(!seqsDiff.containsKey(seq)) {
-								seqsDiff.put(seq, 0);
-							}
-							seqsDiff.put(seq,seqsDiff.get(seq)+1);
-						}
-						//reverse alignment and check whether the configuration is ##M##S or ##S##M##S
-						if ((indexLastS != -1) && (signString == "-") && (indexM != -1) && (indexM<indexLastS)) {
-							String posCS = clippedString.substring(indexM, indexLastS);
-							int pos = Integer.parseInt(posCS);
-							String seq = sam.getReadString().substring(0, pos); 
-							if(!seqsDiff.containsKey(seq)) {
-								seqsDiff.put(seq, 0);
-							}
-							seqsDiff.put(seq,seqsDiff.get(seq)+1);
-						}
-					}
-					//if the first contig in the SA tag is the plasmid and if the SAtag has at least two alignments listed
-					else if (SALength >=7) {
-						String contigString2 = SATag.split(",|;")[6];
-						String signString2 = SATag.split(",|;")[8];
-						if (contigString2 != sp.getChr()) {
-							String clippedString = SATag.split(",|;")[9];
-							int indexFirstS = clippedString.indexOf("S");
-							int indexLastS = clippedString.lastIndexOf("S");
-							int indexM = clippedString.indexOf("M");
-							if ((indexFirstS != -1) && (signString2 != "-")) {
-								String posCS = clippedString.substring(0, indexFirstS);
-								int pos = Integer.parseInt(posCS);
-								String seq = sam.getReadString().substring(0, pos); 
-								if(!seqsDiff.containsKey(seq)) {
-									seqsDiff.put(seq, 0);
-								}
-								seqsDiff.put(seq,seqsDiff.get(seq)+1);
-							}
-							if ((indexLastS != -1) && (signString2 == "-") && (indexM != -1)) {
-								String posCS = clippedString.substring(indexM, indexLastS);
-								int pos = Integer.parseInt(posCS);
-								String seq = sam.getReadString().substring(0, pos); 
-								if(!seqsDiff.containsKey(seq)) {
-									seqsDiff.put(seq, 0);
-								}
-								seqsDiff.put(seq,seqsDiff.get(seq)+1);
-							}
-						}	
-					}
-				}	
-				//if the primary alignment is to the genome
-				if(sam.getContig().equals(sp.getChr())==false) {
-					if (sam.getCigarLength()==2) {
-					CigarElement ce = sam.getCigar().getCigarElement(1);
-						if((ce.getOperator() == CigarOperator.S) || (ce.getOperator() == CigarOperator.H)) {
-							int pos = ce.getLength();
-							String seq = sam.getReadString().substring(0, pos);
-							if(!seqsDiff.containsKey(seq)) {
-								seqsDiff.put(seq, 0);
-							}
-							seqsDiff.put(seq,seqsDiff.get(seq)+1);
-						}	
-					}
-					if (sam.getCigarLength()==3) {
-						CigarElement ce = sam.getCigar().getCigarElement(2);
-							if((ce.getOperator() == CigarOperator.S) || (ce.getOperator() == CigarOperator.H)) {
-								int pos = ce.getLength();
-								String seq = sam.getReadString().substring(0, pos);
-								if(!seqsDiff.containsKey(seq)) {
-									seqsDiff.put(seq, 0);
-								}
-								seqsDiff.put(seq,seqsDiff.get(seq)+1);
-							}	
-						}
-				}
-			}
-		}
-		double total = 0;
-		int max = 0;
-		for(String key: seqsDiff.keySet()) {
-			total+= seqsDiff.get(key);
-			if(seqsDiff.get(key)>max) {
-				max = seqsDiff.get(key);
-			}
-		}
-		return total;
-	}
 	private String getTDNASequence(boolean debug) {
 		ArrayList<String> seqs = new ArrayList<String>();
 		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		//simplest case if second in pair and primary alignment
-		if(debug) {
-			System.out.println("####TDNA adding:");
-		}
 		for(SAMRecord sam: sams) {
-			if(!sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				//up unto the M
+			if (sam.getCigarLength()==2) {
 				CigarElement ce = sam.getCigar().getCigarElement(0);
-				//only do it if this is not the case
-				if(ce.getOperator() == CigarOperator.M) {
-					int pos = ce.getLength();
-					String seq = sam.getReadString().substring(0, pos); 
+				CigarElement ce2 = sam.getCigar().getCigarElement(1);
+				// if the T-DNA read primarily aligned to the T-DNA, and there is one secondary alignment to the genome
+				if ((sam.getContig().equals(sp.getChr())==true) && (ce.getOperator() == CigarOperator.M) && (ce2.getOperator() == CigarOperator.S)) {
+					String seq = sam.getReadString().substring(0, ce.getLength()); 
 					seqs.add(seq);
 					if(!seqsDiff.containsKey(seq)) {
 						seqsDiff.put(seq, 0);
 					}
 					seqsDiff.put(seq,seqsDiff.get(seq)+1);
-					if(debug) {
-						System.out.println("putting1 "+seq+" "+sam.getCigarString() +" "+sam.getReadString()+" "+sam.getContig()+" "+sam.getReadName());						
+				}
+				// if the T-DNA read primarily aligns to the genome. Note that we have to go into the SAtag, otherwise we get a problem if there is a filler or homology
+				//there are some different possibilities. If the alignment is reverse, the matching part will be the second part of the CIGAR instead of the first.
+				if ((sam.getContig().equals(sp.getChr())==false) && (sam.getAttribute("SA")!=null) && (getContigSATagIsContig(sam, sp.getChr())==true)) {
+					String SATag = (String) sam.getAttribute("SA");
+					String SACigar = SATag.split(",|;")[3];
+					int indexFirstM = SACigar.indexOf("M");
+					int indexFirstS = SACigar.indexOf("S");
+					String sASign = SATag.split(",|;")[2];
+					if ((indexFirstM < indexFirstS) && (sASign.equals("+")==true)) {
+						int ilengthTDNA = Integer.parseInt(SACigar.substring(0, indexFirstM));
+						String seq = sam.getReadString().substring(0, ilengthTDNA); 
+						seqs.add(seq);
+						if(!seqsDiff.containsKey(seq)) {
+							seqsDiff.put(seq, 0);
+						}
+						seqsDiff.put(seq,seqsDiff.get(seq)+1);
 					}
+					if ((indexFirstM > indexFirstS) && (sASign.equals("-")==true)) { //A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
+						int ilengthTDNA = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+						String seq = sam.getReadString().substring(0, ilengthTDNA); 
+						seqs.add(seq);
+						if(!seqsDiff.containsKey(seq)) {
+							seqsDiff.put(seq, 0);
+						}
+						seqsDiff.put(seq,seqsDiff.get(seq)+1);
+					}
+					
 				}
 			}
-			//most go here!
-			if(sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				String seq = sam.getReadString();
-				seqs.add(seq);
-				if(!seqsDiff.containsKey(seq)) {
-					seqsDiff.put(seq, 0);
-				}
-				seqsDiff.put(seq,seqsDiff.get(seq)+1);
-				if(debug) {
-					System.out.println("putting2 "+seq+" "+sam.getCigarString()  );						
-				}
-				/*
-				if(this.getPosition()==2923296) {
-					for(SAMRecord sam2: sams) {
-						System.out.println(sam2.isSecondaryAlignment()+"\t"+sam2.getReadString());
-						System.out.println(sam2.getCigarString());
-						System.out.println(sam2.getReadName());
-						System.out.println(sam2.getFirstOfPairFlag());
-						System.out.println(sam2.getMappingQuality());
+			if ((sam.getCigarLength()==3) && (sam.getAttribute("SA")!=null)){
+				CigarElement ce = sam.getCigar().getCigarElement(0);
+				CigarElement ce2 = sam.getCigar().getCigarElement(1);
+				CigarElement ce3 = sam.getCigar().getCigarElement(2);
+				String SATag = (String) sam.getAttribute("SA");
+	    		String[] SAList = SATag.split(",|;");
+				int SALength = SAList.length;
+				String SACigar = SATag.split(",|;")[3];
+				int indexFirstM = SACigar.indexOf("M");
+				int indexFirstS = SACigar.indexOf("S");
+				//there's also a possibility that the filler is derived primarily from T-DNA, and that this alignment is largest and thus the primary.
+				if ((SALength ==6) && (indexFirstS < indexFirstM)) {
+					if ((sam.getReadNegativeStrandFlag()==true) && (sam.getContig().equals(sp.getChr())==true)) {
+						//A00379:349:HM7WFDSXY:4:2452:8178:4413-3 (BL25_LZB1_LB_5_224262)
+						//this read pair does not contain the correct information due to a faulty primary alignment. So don't include it.
 					}
-					System.out.println(this.getNrAnchors(false));
-					//System.exit(0);
+					if (sam.getReadNegativeStrandFlag()==false) {
+						int ilengthTDNA = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+						String seq = sam.getReadString().substring(0, ilengthTDNA); 
+						seqs.add(seq);
+						if(!seqsDiff.containsKey(seq)) {
+							seqsDiff.put(seq, 0);
+						}
+						seqsDiff.put(seq,seqsDiff.get(seq)+1);
+					}
 				}
-				*/
+				//there is a similar plasmid filler possibility:
+				if ((SALength >6) && (indexFirstS < indexFirstM)) {
+					String SACigar2 = SATag.split(",|;")[9];
+					int indexFirstS2 = SACigar2.indexOf("S");
+					int indexFirstM2 = SACigar2.indexOf("M");
+					if (indexFirstS2 > indexFirstM2) {
+						int ilengthTDNA = Integer.parseInt(SACigar2.substring(0, indexFirstM2));
+						String seq = sam.getReadString().substring(0, ilengthTDNA); 
+						seqs.add(seq);
+						if(!seqsDiff.containsKey(seq)) {
+							seqsDiff.put(seq, 0);
+						}
+						seqsDiff.put(seq,seqsDiff.get(seq)+1);
+					}
+				}
 			}
 		}
 		if(debug) {
@@ -1508,9 +1334,7 @@ public class Translocation {
 		return getTranslocationSequence(false);
 	}
 	/**
-	 * for each "s" in "sams", if the read sequence starts with the primer, if not secondary alignment, and cigar follows dMSHdMSH pattern, add basepair sequence to "seqs"
-	 * if the read is a secondary alignment, and hard-clipped, add the basepair sequence to "seqs"
-	 * 
+	 * for each record "s" in "sams", if the read sequence starts with the primer, and cigar follows dMSHdMSH pattern, add basepair sequence to "seqs"
 	 * @param debug
 	 * @return either the list of translocation sequences or "NOTRANSLOCATION"
 	 */
@@ -1520,49 +1344,8 @@ public class Translocation {
 			System.out.println("getTranslocationSequence".toUpperCase());
 		}
 		for(SAMRecord s:sams) {
-			if(s.getReadString().startsWith(sp.getPrimer())) {
-				if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
-					seqs.add(s.getReadString());
-					if(debug) {
-						//System.out.println("tak\t"+s.getReadString());
-						//System.out.println("tak\t"+s.getContig());
-						//System.out.println("tak\t"+s.getCigarString());
-						//System.out.println("tak\t"+s.getReadName());
-					}
-				}
-				//unless it is a secondary alignment and is a hard-clipped read
-				//else if(s.getCigar().numCigarElements()>=2) {
-					//get second operator
-					//if(s.isSecondaryAlignment() && s.getCigar().getCigarElement(1).getOperator() == CigarOperator.HARD_CLIP) {
-					//	if(debug) {
-							//System.out.println("tak\t"+s.getReadString());
-							//System.out.println("tak\t"+getReadTotalString(s));
-					//	}
-					//	seqs.add(getReadTotalString(s,2));
-				//	}
-				//}
-				if(debug) {
-					/*
-					System.out.println("nie\t"+s.getReadString());
-					System.out.println("nieLong\t"+getReadTotalString(s));
-					System.out.println("nie\t"+s.getContig());
-					System.out.println("nie\t"+s.getCigarString());
-					System.out.println("nie\t"+s.getReadName());
-					System.out.println("nie\t"+cigarStringFollowsMSH(s.getCigarString()));
-					System.out.println("nie\t"+!s.isSecondaryAlignment());
-					System.out.println("========");
-					*/
-					//System.out.println(s.getReadString());
-					//System.out.println(s.getFirstOfPairFlag());
-					//System.out.println(s.getContig());
-					//System.out.println(s.getCigarString());
-					//System.out.println(s.getReadString().startsWith(sp.getPrimer()));
-				}
-			}
-			if(debug) {
-				//System.out.println("HIER!\t"+s.getReadString());
-				//System.out.println(s.getCigarString());
-				//System.out.println(!s.isSecondaryAlignment());
+			if((s.getReadString().startsWith(sp.getPrimer())) && (cigarStringFollowsMSH(s.getCigarString()))) {
+				seqs.add(s.getReadString());
 			}
 		}
 		if(debug) {
@@ -1585,33 +1368,7 @@ public class Translocation {
 		}
 		return NOTRANSLOCATION;
 	}
-	/**Return the first nrCigarElements of this read. First the longest read is searched 
-	 * usually that is the one containing the soft-clipped parts.
-	 * A cigarelement is a number plus operator. Usually 2, but sometimes 1.
-	 * @param s
-	 * @param nrCigarElements
-	 * @return the sequence of the longest read
-	 */
-	private String getReadTotalString(SAMRecord s, int nrCigarElements) {
-		SAMRecord longest = s;
-		for(SAMRecord sam: sams) {
-			if(sam.getReadName().contentEquals(s.getReadName())) {
-				if(sam.getFirstOfPairFlag() == s.getFirstOfPairFlag()) {
-					if(sam.getReadString().length()>longest.getReadString().length()) {
-						longest = sam;
-					}
-				}
-			}
-		}
-		if(longest.getCigarLength()>nrCigarElements) {
-			int length = 0;
-			for(int i=0;i<nrCigarElements;i++) {
-				length += longest.getCigar().getCigarElement(i).getLength();
-			}
-			return longest.getReadString().substring(0, length);
-		}
-		return longest.getReadString();
-	}
+
 	/**
 	 * Find a match with "digit - (M, S, or H) - digit - (M, S, or H)". Then return true if there is a match. "M" is a match, "S" is a soft-clipped segment, "H" is a hard-clipped segment.
 	 * @param cigarString
@@ -1636,10 +1393,7 @@ public class Translocation {
 	//TODO the sequences correctly
 	//20190506 my solution is to put only substrings of the seq in the list
 	//this way I can avoid the problem of having tiling seqs
-	private static Consensus consensusString(ArrayList<String> list) {
-		Consensus c = new Consensus(list);
-		return c;
-	}
+
 	/**
 	 * @param list
 	 * @return the "mostRepeatedWord" integer 
@@ -1694,58 +1448,46 @@ public class Translocation {
 		return getRealPosition(false);
 	}
 	/**
-	 * For each in sams: if not secondary alignment, and cigar follows the dMSHdMSH pattern, and the primary alignment is not to the plasmid,
-	 * if the number of mismatches is lower than the set limit,
-	 * if the OC attribute is not null then "cigar" = the string from the OC attribute
-	 * if the softclipped segment precedes the aligned segment, get the start of the alignment, and add it to the list "seqs".
-	 * Otherwise, get the end of the alignment and add that to the list "seqs".
-	 * Then outside of the for loop: if the list of "seqs" is not empty, determine how many items in "seqs" agree with the consensus position. 
-	 * If the list is empty, return the start of alignment position of the mate.
-	 * If debug==true, the system will output some info.
+	 * Get the position as usual from the T-DNA reads.
+	 * From the anchors, also get the position. Even though the anchors usually do not match at the position, this information is written in the anchor anyway. But not always.
+	 * When it is written in the anchor, this position is the same for all anchors. If for some reason the position is not given correctly, then it will be different for different anchors.
+	 * Then the most occurring position will be the real position, and this will be returned. 
+	 * The reason why this (calling the real position) is necessary is that sometimes with large fillers you have a bigger alignment in the filler than outside (for the T-DNA read). This causes the actual position to shift.
 	 * @param debug
-	 * @return consensus position or the start of alignment position of the mate
+	 * @return corrected position.
 	 */
 	public int getRealPosition(boolean debug) {
-		ArrayList<Integer> seqs = new ArrayList<Integer>();
+		ArrayList<Integer> positions = new ArrayList<Integer>();
 		for(SAMRecord s:sams) {
-			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString()) 
-					&& !s.getContig().equals(sp.getChr())) {
-				//no mismatches
-				if(getNMis0(s)) {
-					//maybe get the actual position
-					String cigar = s.getCigarString();
-					if(s.getAttribute("OC")!=null) {
-						cigar = (String) s.getAttribute("OC");
-					}
-					int indexS = cigar.indexOf("S");
-					int indexM = cigar.indexOf("M");
-					if(indexS>=0 && indexS<indexM) {
-						seqs.add(s.getAlignmentStart());
-						if(debug) {
-							System.out.println(s.getAlignmentStart()+" "+getNMis0(s));
-						}
-					}
-					else {
-						seqs.add(s.getAlignmentEnd());
-						if(debug) {
-							System.out.println(s.getAlignmentEnd()+" "+getNMis0(s));
-						}
-
-					}
-					
+			if ((s.getAttribute("SA") != null) && (s.getFirstOfPairFlag()==false)) {
+				int position=getPosition2(s, sp);
+				if (position!=-1) {
+					positions.add(position);
 				}
-				else if(debug) {
-					System.out.println(s.getAlignmentStart()+" "+getNMis0(s)+" not used");
+				else {
+					//
+				}
+			}
+			//this may cause problems, but may also solve problems. test!
+			if ((s.getFirstOfPairFlag()==true) && (s.getContig().equals(sp.getChr())==false)) {
+
+				if (s.getReadNegativeStrandFlag()==true){
+					int position = s.getAlignmentStart();
+					positions.add(position);
+				}
+				if (s.getReadNegativeStrandFlag()==false){
+					int position = s.getAlignmentEnd();
+					positions.add(position);
 				}
 			}
 		}
-		if(seqs.size()>0) {
+		if(positions.size()>0) {
 			//because the read that is not the one connected to the T-DNA
 			//can also determine the consensus this might be a bit tricky
-			int pos = consensusInt(seqs);
+			int pos = consensusInt(positions);
 			int counter = 0;
 			int total = 0;
-			for(Integer i: seqs) {
+			for(Integer i: positions) {
 				if(i == pos) {
 					counter++;
 				}
@@ -1755,7 +1497,6 @@ public class Translocation {
 			return pos;
 		}
 		return sams.get(0).getMateAlignmentStart();
-		
 	}
 	/**
 	 * @return sams
@@ -1773,27 +1514,26 @@ public class Translocation {
 		//return sams.get(0).getMateAlignmentStart();
 	}
 	/**
-	 * If the read is not a secondary alignment read, if the primary alignment of the read is on the plasmid, if there is an SA tag,
-	 * If the first secondary alignment is not the plamsid, then return the chromosomal position on the first position in the SA tag.
-	 * If the first secondary alignment is on the plasmid, then check whether the second secondary alignment is on the plasmid. If so return that chromosomal position.
-	 * In case these things are not true, then take the start position of the alignment of the mate, which should be the anchor read.
+	 * If the read aligns to the plasmid, but there is a secondary alignment,
+	 * and the secondary alignment is not to the plasmid, then get the location in that secondary alignment.
+	 * and if the secondary alignment is to the plasmid, but the tertiary alignment is not, then get the location on that tertiary alignment.
+	 * If instead the read does not align to the plasmid, then get the end of the primary alignment. 
 	 * @param s
 	 * @param sp
 	 * @return a chromosomal position integer. 
 	 */
 	public static int getPosition2(SAMRecord s, SamplePrimer sp) {
-		if( (s.getFirstOfPairFlag()==false) && (s.getAttribute("SA") != null)){
 			String SATag = (String) s.getAttribute("SA");
 			String[] SAList = SATag.split(",|;");
 			int SALength = SAList.length;
 			String signString1 = SATag.split(",|;")[2];
-			if (s.getContig().equals(sp.getChr())==true) { 
-				if((getContigSATagIsNotContig(s, sp.getChr()))==true){ //if the first chrom in the SA is not plasmid
-					if (signString1 == "+") {
+			if ((s.getContig().equals(sp.getChr())==true) && (s.getAttribute("SA") != null)) {
+				if((getContigSATagIsContig(s, sp.getChr()))==false){
+					if (signString1.equals("+")) {
 						int position = getPosSATag(s);
 						return position;
 					}
-					else {//if negative strand
+					if (signString1.equals("-")) {//if negative strand
 						String clippedString = SATag.split(",|;")[3];
 						int indexFirstM = clippedString.indexOf("M");
 						int indexFirstS = clippedString.indexOf("S");
@@ -1801,13 +1541,13 @@ public class Translocation {
 							if ((indexFirstM <= indexFirstS)) {
 								String posMS = clippedString.substring(0, indexFirstM);
 								int pos = Integer.parseInt(posMS);
-								int position = getPosSATag(s)+pos;
+								int position = getPosSATag(s)+pos-1; //check whether this -1 is always correct
 								return position;
 							}
 							else { //when the format of the cigar is different
 								String posMS = clippedString.substring(indexFirstS+1, indexFirstM);
 								int pos = Integer.parseInt(posMS);
-								int position = getPosSATag(s)+pos;
+								int position = getPosSATag(s)+pos-1; // add -1?
 								return position;
 							}
 						}
@@ -1816,13 +1556,13 @@ public class Translocation {
 						}	
 					}
 				}
-				else if((getContigSATagIsNotContig(s, sp.getChr())==false) && (SALength >=7) && (getContigSATagIsNotContig2(s, sp.getChr())==true) ){	
+				else if((getContigSATagIsContig(s, sp.getChr())==true) && (SALength >=7) && (getContigSATagIsContig2(s, sp.getChr())==false) ){	
 					String signString2 = SATag.split(",|;")[8];
-					if (signString2 == "+") {
+					if (signString2.equals("+")) {
 						int position = getPosSATag2(s);
 						return position;
 					}
-					else { //if negative strand
+					if (signString2.equals("-")){ //if negative strand
 						String clippedString = SATag.split(",|;")[9];
 						int indexFirstM = clippedString.indexOf("M");
 						int indexFirstS = clippedString.indexOf("S");
@@ -1830,66 +1570,68 @@ public class Translocation {
 							if ((indexFirstM <= indexFirstS)) {
 								String posMS = clippedString.substring(0, indexFirstM);
 								int pos = Integer.parseInt(posMS);
-								int position = getPosSATag2(s)+pos;
+								int position = getPosSATag2(s)+pos-1; //add -1?
 								return position;
 							}
 							else { //when the format of the cigar is different
 								String posMS = clippedString.substring(indexFirstS+1, indexFirstM);
 								int pos = Integer.parseInt(posMS);
-								int position = getPosSATag2(s)+pos;
+								int position = getPosSATag2(s)+pos-1; // add -1?
 								return position;
 							}
 						}
 						else { //not expected
-							//System.out.println("escapees2");
+							System.out.println("escapees2");
 						}
 					}
 				}
-			}	
-			if (s.getContig().equals(sp.getChr())==false) { 
-				int position = s.getAlignmentEnd();
-				return position;
 			}
-		}
-		if ( (s.getFirstOfPairFlag()==false) && (s.getAttribute("SA") == null)) { 
-			int position = -1;
-			//System.out.println("escapees3");
-			return position;
-		}
+			if (s.getContig().equals(sp.getChr())==false) {
+				if (s.getReadNegativeStrandFlag()==true){
+					int position = s.getAlignmentEnd(); //A00379:349:HM7WFDSXY:4:1274:28962:25254-2 (BL30_LZB1_RB_3_22700768)
+					return position;
+				}
+				if (s.getReadNegativeStrandFlag()==false){
+					int position = s.getAlignmentStart();
+					return position;
+				}
+			}
+		
 		int position = -1;
-		//System.out.println("escapees5");
+		//System.out.println("escapees3");
 		return position;
 		
 	}
+	
 	/**
-	 * If the samrecord "s" has an SA tag, get the Chr from that SA tag. THen compare to the Chr from "str". If not equal, return true.
-	 * If they are equal, or if there is no SA tag, return false.
+	 * If the samrecord "s" has an SA tag, get the Chr from that SA tag. THen compare to the Chr from "str". If equal, return true.
+	 * If they are not equal, or if there is no SA tag, return false.
 	 * @param s
 	 * @param str
 	 * @return true or false
 	 */
-	private static boolean getContigSATagIsNotContig(SAMRecord s, String str) {
+	private static boolean getContigSATagIsContig(SAMRecord s, String str) {
 		if(s.getAttribute("SA") != null) {
 			String SATag = (String) s.getAttribute("SA");
 			String contigString = SATag.split(",")[0];
-			return !contigString.equals(str);
+			return contigString.equals(str);
 		}
 		return false;
 	}
 	/**
-	 * If the samrecord "s" has an SA tag, get the Chr from the second alignment in that SA tag. THen compare to the Chr from "str". If not equal, return true.
+	 * If the samrecord "s" has an SA tag, get the Chr from the second alignment in that SA tag. THen compare to the Chr from "str". If equal, return true.
 	 * Else return false. False also includes records that don't have an SA tag, or when the SA tag does not have a secondary alignment.
 	 * @param s
 	 * @param str
 	 * @return true or false
 	 */
-	private static boolean getContigSATagIsNotContig2(SAMRecord s, String str) {
+	private static boolean getContigSATagIsContig2(SAMRecord s, String str) {
 		if(s.getAttribute("SA") != null) {
 			String SATag = (String) s.getAttribute("SA");
 			String[] contigString1 = SATag.split(",|;");
 			if (contigString1.length >= 7){
 			String contigString = SATag.split(",|;")[6];
-			return !contigString.equals(str);
+			return contigString.equals(str);
 			}
 		}
 		return false;
@@ -1900,12 +1642,9 @@ public class Translocation {
 	 * @return a signed decimal integer with the chromosomal position
 	 */
 	private static int getPosSATag(SAMRecord s) {
-		//if(s.isSecondaryAlignment()) {
 			String SATag = (String) s.getAttribute("SA");
-			String intString = SATag.split(",")[1];
+			String intString = SATag.split(",|;")[1];
 			return Integer.parseInt(intString);
-		//}
-		//return Integer.MIN_VALUE;
 	}
 	/**
 	 * Get the position on the chromosome of the second alignment on the SA tag. 
@@ -1913,12 +1652,48 @@ public class Translocation {
 	 * @return a signed decimal integer with the chromosomal position
 	 */
 	private static int getPosSATag2(SAMRecord s) {
-		//if(s.isSecondaryAlignment()) {
 			String SATag = (String) s.getAttribute("SA");
 			String intString = SATag.split(",|;")[7];
 			return Integer.parseInt(intString);
-		//}
-		//return Integer.MIN_VALUE;
+	}
+	private static boolean getForwardSATag(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String signString = SATag.split(",|;")[2];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
+	
+	private static int getSALength(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String[] SAList = SATag.split(",|;");
+		int SALength = SAList.length;
+		return SALength;
+	}
+	
+	private static int getPosSATagEnd(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String intString = SATag.split(",|;")[1];
+		int pos = Integer.parseInt(intString);
+		String cigarString = SATag.split(",|;")[3];
+		int indexFirstM = cigarString.indexOf("M");
+		int indexFirstS = cigarString.indexOf("S");
+		//int indexFirstH = cigarString.indexOf("H");
+		if (indexFirstS < indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
+			int position = pos+posSM;
+			return position;
+		}
+		if (indexFirstS > indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(0, indexFirstM));
+			int position = pos+posSM;
+			return position;
+		}
+		int position =-1;
+		return position;
 	}
 	/**
 	 * If "names" contains the mapping for the readName key.
@@ -1933,7 +1708,7 @@ public class Translocation {
 		
 	}
 	/**
-	 * Return true if either the NM (edit distance) of "src" hasn't been set, or if the number of mismatches is lower than or equal to the limit.
+	 * Return true if either the NM (edit distance) of "src" hasn't been set, or if the number of mismatches is lower than or equal to the limit (=1 mismatch).
 	 * Return false if the number of mismatches exceeds the limit. 
 	 * @param srec
 	 * @return true or false
@@ -2084,23 +1859,24 @@ public class Translocation {
 		ArrayList<SAMRecord> genomicReadsIncPrimer = new ArrayList<SAMRecord>();
 		ArrayList<SAMRecord> genomicReadsAll = new ArrayList<SAMRecord>();
 		for(SAMRecord sr: sams) {
-			if(sr.getContig().contentEquals(sp.getChr())) {
+			if((sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) && (sr.getReadString().startsWith(sp.getPrimer()))) {
 				tdnareads.add(sr);
 			}
-			else if(!sr.getContig().contentEquals(sp.getChr()) && (sr.getReadString().startsWith(sp.getPrimer()) ||
-					sr.getCigar().getFirstCigarElement().getOperator() ==CigarOperator.H)) {
-				genomicReadsIncPrimer.add(sr);
-			}
-			else if(!sr.getContig().contentEquals(sp.getChr())) {
-				genomicReads.add(sr);
-			}
-			else {
-				System.err.println("What's this?");
-				System.err.println(sr.getReadString());
-			}
-			if((sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag())
+			if((sr.getFirstOfPairFlag()!=sp.isFirstOfPairFlag())
 					) {
-					genomicReadsAll.add(sr)	;
+					genomicReadsAll.add(sr);
+					if (sr.getReadString().startsWith(sp.getPrimer())) {
+						genomicReadsIncPrimer.add(sr);
+					}
+					else {
+						genomicReads.add(sr);
+					}
+			}
+			if ((sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) && (sr.getReadString().startsWith(sp.getPrimer())==false)) {
+				if(sr.getReadName().contentEquals(testName)) {
+					System.err.println("T-DNA read does not start with primer");
+					System.err.println(sr.getReadString());
+				}
 			}
 			//boolean startWithPrimer = sr.getReadString().startsWith(sp.getPrimer());
 			//String aligned = getAligned(sr);
@@ -2115,9 +1891,10 @@ public class Translocation {
 			//sb.append("\r\n\t");
 			//a.addFragment(new Fragment(sr.getReadString()));
 		}
-		sb.append("\r\n\nTDNA reads\r\n");
+		sb.append("\r\n\nTDNA reads - only the T-DNA part\r\n");
 		//Assembler a = new Assembler();
 		this.TDNAcons = new Consensus();
+		this.TDNAfullcons = new Consensus();
 		this.genomeCons = new Consensus();
 		this.genomeConsInt = new ConsensusInt();
 		this.genomePrimerCons = new Consensus();
@@ -2126,12 +1903,23 @@ public class Translocation {
 			String cigar = Translocation.getString(sr.getCigarString(),24);
 			//String map = Translocation.getString(""+sr.getFirstOfPairFlag(),4);
 			//cigar = map+cigar;
-			String readPart = Translocation.getMatchedPart(sr, false);
+			String readPart = Translocation.getMatchedPart(sr, false, sp);
 			TDNAcons.add(readPart);
 			sb.append(cigar+readPart+" "+sr.getReadName()).append("\r\n");
 		}
-		sb.append(Translocation.getString("consensusTDNA", 24)).append(TDNAcons.getConsensusString()).append("\r\n");
-		sb.append(Translocation.getString("most frequent TDNA", 24)).append(TDNAcons.getMostRepeatedString()).append(" "+TDNAcons.getMostRepeatedStringNr()).append(" fraction:" +TDNAcons.getMostRepeatedStringFraction());
+		sb.append(Translocation.getString("consensus TDNA parts", 24)).append(TDNAcons.getConsensusString()).append("\r\n");
+		sb.append(Translocation.getString("most frequent TDNA", 24)).append(TDNAcons.getMostRepeatedString()).append(" no. reads matching con: "+TDNAcons.getMostRepeatedStringNr()).append(" fraction reads matching con: " +TDNAcons.getMostRepeatedStringFraction());
+		
+		sb.append("\r\n\nTDNA reads - full reads\r\n");
+		for(SAMRecord sr: tdnareads) {
+			String cigar = Translocation.getString(sr.getCigarString(),24);
+			String readsequence = sr.getReadString();
+			TDNAfullcons.add(readsequence);
+			sb.append(cigar+readsequence+" "+sr.getReadName()).append("\r\n");
+		}
+		sb.append(Translocation.getString("consensus full", 24)).append(TDNAfullcons.getConsensusString()).append("\r\n");
+		sb.append(Translocation.getString("most frequent TDNA", 24)).append(TDNAfullcons.getMostRepeatedString()).append(" no. reads matching con: "+TDNAfullcons.getMostRepeatedStringNr()).append(" fraction reads matching con: " +TDNAfullcons.getMostRepeatedStringFraction());
+		
 		sb.append("\r\nend of TDNA\r\n");
 		sb.append("Genomic reads that include the primer\r\n");
 		for(SAMRecord sr: genomicReadsIncPrimer) {
@@ -2141,12 +1929,13 @@ public class Translocation {
 			sb.append(cigar+sr.getReadString()+"\t"+sr.getFirstOfPairFlag()).append("\r\n");
 		}
 		int count = 0;
+		//there is something that makes the consensus of genomic reads including primer not work. In any case, not many reads will stop exactly at the start of the T-DNA primer, so most will not go there.
 		for(SAMRecord sr: genomicReadsIncPrimer) {
 			String cigar = Translocation.getString(sr.getCigarString(),20);
 			String map = Translocation.getString(""+sr.getAlignmentStart(),10);
 			cigar = map+cigar;
-			String readPart = Translocation.getMatchedPart(sr, true);
-			String readPartNoSpaces = Translocation.getMatchedPart(sr, false);
+			String readPart = Translocation.getMatchedPart(sr, true, sp);
+			String readPartNoSpaces = Translocation.getMatchedPart(sr, false, sp);
 			//check if first part is a Hard clip, because that will not provide any info here
 			if(sr.getCigar().getFirstCigarElement().getOperator()==CigarOperator.H) {
 				//System.out.println("Hard "+sr.getReadName());
@@ -2277,6 +2066,7 @@ public class Translocation {
 		
 	}
 	public void removeSam(SAMRecord srec) {
+
 		for(int i=sams.size()-1;i>=0;i--) {
 			if(sams.get(i).getReadName().contentEquals(srec.getReadName())) {
 				sams.remove(i);
@@ -2284,4 +2074,6 @@ public class Translocation {
 		}
 		names.remove(srec.getReadName());
 	}
+
 }
+

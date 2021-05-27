@@ -37,7 +37,7 @@ public class SAMReader {
 		}
 		MyOptions options = new MyOptions(cmd);
 		//String dir = "E:\\NGS\\Genome_Scan_104269\\umi_cons_bam\\";
-		String dir = "D:\\Lejon\\Documents\\T-DNA integration job\\GUIDEseq_experiment_8\\";
+		String dir = "E:\\NGS_data\\bamfiles\\";
 		boolean recursive = true;
 		boolean combineFiles = false;
 		//default == 2
@@ -50,13 +50,12 @@ public class SAMReader {
 		int maxReads = -1;
 		
 		ArrayList<File> files = OutputCommands.searchSortedBam(new File(dir), recursive);
-		PrimerController pc = new PrimerController(new File("Sample_Primer_104406.txt"));
+		PrimerController pc = new PrimerController(new File("Sample_Primer_18052021.txt"));
 		File out = new File("out.txt");
 		
 		BufferedWriter allEvents = null;
 		BufferedWriter bw = null;
 		try {
-			//this creates a file that writes the sequences of the reads of the junctions and additional info
 			allEvents = new BufferedWriter(new FileWriter("allEvents.txt"));
 			bw = new BufferedWriter(new FileWriter(out));
 		} catch (IOException e1) {
@@ -101,8 +100,7 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			//select a specific sample for testing
-			if(f.getName().contains("BL29_LZB2_RB"))  {
+			if(f.getName().contains("BL11-LB")) {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				
