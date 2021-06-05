@@ -100,7 +100,7 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			if(f.getName().contains("BL11-LB")) {
+			//if(f.getName().contains("BL29_LZB2_RB")) {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				
@@ -124,7 +124,7 @@ public class SAMReader {
 					hm.put(sp,null);
 		        }
 			//System.out.println("hier! " +sp.getRun());
-			}
+			//}
 		}
 		//reiterate all samples in hash
 		if(combineFiles) {
