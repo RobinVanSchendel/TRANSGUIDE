@@ -27,16 +27,13 @@ public class TranslocationController {
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
-	public static final String testName = "A00379:349:HM7WFDSXY:4:2507:12726:23249";
+	public static final String testName = "M02948:168:000000000-J95JM:1:1101:19985:13363";
+	public static final String testPosition = "3:5639620";
 	
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
 	}
-	/**
-	 * If the position is not faulty,
-	 * @param s
-	 * @return
-	 */
+	
 	private Translocation getNearestTranslocation(SAMRecord s) {
 		if (Translocation.getPosition2(s, sp)!=-1) {  //filter for faulty positions
 			int pos = Translocation.getPosition2(s, sp);
@@ -46,7 +43,7 @@ public class TranslocationController {
 				return null;
 			}
 			for(Translocation tl: trans.get(s.getMateReferenceName())) {
-				//if(tl.isForward() != s.getMateNegativeStrandFlag()) {
+				if(tl.isForward() != s.getMateNegativeStrandFlag()) {
 					int tempPos = tl.getPosition1();
 					int distance = Math.abs(pos-tempPos);
 					if(distance<minDis) {
@@ -56,7 +53,7 @@ public class TranslocationController {
 					else if(minDis>=0 && minDis<MAXDIST && nearest!=null) {
 						return nearest;
 					}
-					//}
+				}
 			}
 			if (minDis<MAXDIST) {
 				return nearest;
@@ -69,7 +66,6 @@ public class TranslocationController {
 	}
 	public Translocation addTranslocation(SAMRecord s, int maxReads) {
 		Translocation nearest = getNearestTranslocation(s);
-//		int pos = Translocation.getPosition2(s, options);
 		if(nearest !=null) {
 			if(nearest.getSams().size()<maxReads) {
 				nearest.addSam(s);
@@ -110,7 +106,7 @@ public class TranslocationController {
 				int printNr = 0;
 				for(Translocation tl: trans.get(key)) {
 					if(tl.getSams().size()>0) {
-						if(tl.getNrAnchors(false)>=minSupport) {
+						if(tl.getNrAnchors(true)>=minSupport) {
 							//String output = null;
 							String output = tl.toString(debug);
 							bw.write(sp.getSampleString()+"\t"+output+"\n");
@@ -192,7 +188,10 @@ public class TranslocationController {
 	public void addRefGenomePart(ReferenceSequenceFile rsf) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
+				if (tl.getSams().size()>0) {
 					tl.addRefSequence(rsf);
+				}
+					
 			}
 		}
 	}
@@ -338,50 +337,23 @@ public class TranslocationController {
 	                		System.err.println("launch analysis - checkpoint 2");
 	            		}
 	        		}
-	        		if (SALength == 6) {
-	        			if (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true))){
-	        				if(			((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==true) && (Translocation.getNMis0(srec))  && (srec.getAlignmentStart()==primerStart)) //e.g. A00379:349:HM7WFDSXY:4:1218:1796:29528-3 (BL29_LZB2_RB_1_27525504) & A00379:349:HM7WFDSXY:4:2376:6524:12477-4 (BL29_LZB2_RB_1_27952038)
-	        						 || ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==true)	&& (Translocation.getNMis0(srec)) && (srec.getAlignmentEnd()==primerEnd)) //A00379:349:HM7WFDSXY:4:1122:10800:11553-4 (BL11_LB_1_2846802)
-	        						 
-	        						 || ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getNMSATagis0(srec)==true) && (getForwardSATag(srec)==false) && (getPosSATagEnd(srec)==primerEnd)) //A00379:349:HM7WFDSXY:4:2232:31837:21746-2 (BL11_LB_2_10053529) & A00379:349:HM7WFDSXY:4:1157:11659:10755-2 (BL11_LB_2_9027604) & A00379:349:HM7WFDSXY:4:2240:19895:25269-2 (BL30_LZB1_RB_3_22410573)
-	        						 || ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getNMSATagis0(srec)==true) && (getForwardSATag(srec)==true)  && (getPosSATag(srec)==primerStart)) //A00379:349:HM7WFDSXY:4:1258:25102:13244-2 (BL29_LZB2_RB_1_30044710) & A00379:349:HM7WFDSXY:4:1347:6406:9392-2 (BL29_LZB2_RB_1_27525504)
-	        						 
-	        						 || ((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getNMSATagis0(srec)==true) && (getForwardSATag(srec)==true)  && (getPosSATag(srec)==primerStart)) //A00379:349:HM7WFDSXY:4:1507:17879:27038-1 (BL29_LZB2_RB_1_27952038)
-	        						 || ((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==false) && (sp.getChr().equals(getContigSATag(srec))) && (getNMSATagis0(srec)==true) && (getForwardSATag(srec)==false)  && (getPosSATagEnd(srec)==primerEnd))) //A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
-	        					
-	        					//maybe above there should be a filter to remove reads with cigarlength of 3, like in this case: A00379:349:HM7WFDSXY:4:1303:20781:4382-3 (BL30_LZB1_RB_3_22700768)
-	        					//although checking whether it starts with the primer appears enough.
-	        				{
-	        					if(debug) {
-	        						if(srec.getReadName().contentEquals(testName)) {
-	        							System.err.println("launch analysis - checkpoint 3");
-	        						}
-	        					}
-	        					if(srec.getReadString().contains("N")) {
-	        						Ncount++;
-	        					}
-	        					addTranslocation(srec, maxReadsPerTrans);		       					       			
-	        				}
+	        		if (
+	        			((SALength == 6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true)))) ||
+	        			((SALength >6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true) && (sp.getChr().equals(getContigSecondSATag(srec))==true))))
+	        			)
+	        		{
+	        			if (srec.getReadString().startsWith(sp.getPrimer())) {
+	        				if(debug) {
+	    	        			if(srec.getReadName().contentEquals(testName)) {
+	    	        				System.err.println("launch analysis - checkpoint 3");
+	    	        			}
+	    	        		}
+	    	        		if(srec.getReadString().contains("N")) {
+	    	        			Ncount++;
+	    	        		}
+	    	        		addTranslocation(srec, maxReadsPerTrans);	
 	        			}
-	        		}//negative strand, alignment end is the end of the primer.
-	        		if (SALength > 6) {
-	        			if (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true) && (sp.getChr().equals(getContigSecondSATag(srec))==true))){
-	        				if (	   ((srec.getReadNegativeStrandFlag()==false) && (srec.getContig().equals(sp.getChr())==true) && (Translocation.getNMis0(srec)) && (srec.getAlignmentStart()==primerStart)) //e.g. A00379:349:HM7WFDSXY:4:1610:23384:24330-4 (BL29_LZB2_RB_2_231564)
-	        						|| ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==true) && (Translocation.getNMis0(srec)) && (srec.getAlignmentEnd()==primerEnd)) // A00379:349:HM7WFDSXY:4:1226:10945:24862-3 (BL11_LB_2_9027604) & A00379:349:HM7WFDSXY:4:1223:26955:6433-3 (BL11_LB_3_7326556) & A00379:349:HM7WFDSXY:4:1309:17815:31908-3 (BL11_LB_4_10170393)
-	        						|| ((srec.getReadNegativeStrandFlag()==true)  && (srec.getContig().equals(sp.getChr())==true) && (srec.getCigarLength()==3) && (sp.getChr().equals(getContigSecondSATag(srec))==true) && (getNMSecondSATagis0(srec)==true) && (getForwardSecondSATag(srec)==true) && (getPosSecondSATag(srec)==primerStart)) //A00379:349:HM7WFDSXY:4:2642:1108:31344-3 (BL29_LZB2_RB_2_231564)
-	        						){
-	        					if(debug) {
-	        						if(srec.getReadName().contentEquals(testName)) {
-	        							System.err.println("launch analysis - checkpoint 4");
-	        						}
-	        					}
-	        					if(srec.getReadString().contains("N")) {
-	        						Ncount++;
-	        					}
-	        					addTranslocation(srec, maxReadsPerTrans);
-	        				}
-	        			}
-	        		}
+	        		}		       	
         		}
         		if(isDuplicate(srec)) {
        				duplicateFlag++;
@@ -554,6 +526,9 @@ public class TranslocationController {
 	private void printEventsComplete(BufferedWriter bwOut, boolean print) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
+				if (tl.getIGVPos() == testPosition) {
+					System.out.println("Junction found and printing");
+				}
 				if(tl.getSams().size()>0) {
 					try {
 						//bwOut.write(tl.getIGVPos()+"\n");
@@ -566,10 +541,8 @@ public class TranslocationController {
 						e.printStackTrace();
 					}
 				}
-				
 			}
 		}
-		
 	}
 	private void addTDNASplit() {
 		for(String key: trans.keySet()){
