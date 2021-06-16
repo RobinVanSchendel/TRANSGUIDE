@@ -27,7 +27,7 @@ public class TranslocationController {
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
-	public static final String testName = "M02948:168:000000000-J95JM:1:1101:19985:13363";
+	public static final String testName = "M02948:174:000000000-JBDYN:1:2118:12143:22583";
 	public static final String testPosition = "3:5639620";
 	
 	public TranslocationController(SamplePrimer sp) {
@@ -40,6 +40,11 @@ public class TranslocationController {
 			Translocation nearest = null;
 			int minDis = Integer.MAX_VALUE;
 			if(trans.get(s.getMateReferenceName()) == null) {
+				return null;
+			}
+			if (sp.getChr().equals(s.getMateReferenceName())==true) {
+				if(s.getReadName().contentEquals(testName)) { 
+					System.err.println("Mate is primarily aligned to the plasmid, nearest translocation will be null");}
 				return null;
 			}
 			for(Translocation tl: trans.get(s.getMateReferenceName())) {
@@ -77,7 +82,7 @@ public class TranslocationController {
 			if(s.getReadName().contentEquals(testName)) { 
 			System.out.println("addTranslocation - checkpoint1");}
 			//sometimes the sam is not added due to filtering of secondary alignments
-			if(tl.getNrSupportingReads()>0) {
+			if((tl.getNrSupportingReads()>0) && (sp.getChr().equals(s.getMateReferenceName())==false)) {
 				ArrayList<Translocation> al = trans.get(s.getMateReferenceName());
 				if(al==null) {
 					al = new ArrayList<Translocation>();
@@ -141,7 +146,6 @@ public class TranslocationController {
 					SAMRecord srec = sri.next();
 					if(srec.getContig()!=null) {
 						//below duplicates are not included, only anchors (first of pair), and the read has to align primarily to the chromosome, which will remove some anchors from very small fragments, or fillers with very large perfect alignments.
-						//it also removes cases where the anchor is on a different chromosome due to a chromosomal rearrangement.
 						if((isDuplicate(srec)==false) && (tl.containsRecord(srec.getReadName())==true) && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) { 
 								boolean added = tl.addSam(srec);
 								if(srec.getReadName().contentEquals(testName)) {
@@ -557,6 +561,45 @@ public class TranslocationController {
 		
 	}
 
+	public static int getSACigarLength(SAMRecord s) {
+		String SATag = (String) s.getAttribute("SA");
+		String cigarString = SATag.split(",|;")[3];
+		int countS = countChar(cigarString, 'S');
+		int countM = countChar(cigarString, 'M');
+		//int countI = countChar(cigarString, 'I');
+		//int countD = countChar(cigarString, 'D');
+		int totalCount = countS+countM;
+		return totalCount;
+	}
+	public static int getSASecondCigarLength(SAMRecord s) {
+		String SATag = (String) s.getAttribute("SA");
+		String cigarString = SATag.split(",|;")[9];
+		int countS = countChar(cigarString, 'S');
+		int countM = countChar(cigarString, 'M');
+		//int countI = countChar(cigarString, 'I');
+		//int countD = countChar(cigarString, 'D');
+		int totalCount = countS+countM;
+		return totalCount;
+	}
+	
+	public static int countChar(String str, char c)
+	{
+	    int count = 0;
+
+	    for(int i=0; i < str.length(); i++)
+	    {    if(str.charAt(i) == c)
+	            count++;
+	    }
+
+	    return count;
+	}
+	private static int getSALength(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String[] SAList = SATag.split(",|;");
+		int SALength = SAList.length;
+		return SALength;
+	}
+
 	public Translocation searchTranslocation(Translocation tl) {
 		if(this.searchRealPositions.size()==0) {
 			this.hashAllRealPositions();
@@ -637,5 +680,21 @@ public class TranslocationController {
 				}
 			}
 		}
+	}
+	private String getContigImp(SAMRecord sam) {
+		if ((sp.getChr().equals(sam.getContig())==false) && (sam.getCigarLength()<=2)) {
+			return sam.getContig();
+		}
+		else {
+			if ((sp.getChr().equals(getContigSATag(sam))==true) && (getSACigarLength(sam)==2)) {
+				return getContigSATag(sam);
+			}
+			else {
+				if ((getSALength(sam)>6) && (sp.getChr().equals(getContigSecondSATag(sam))==true) && (getSASecondCigarLength(sam)==2)) {
+				return getContigSecondSATag(sam);
+				}
+			}
+		}
+		return "invalid chromosome";
 	}
 }

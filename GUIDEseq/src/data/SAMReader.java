@@ -40,8 +40,8 @@ public class SAMReader {
 		String dir = "E:\\NGS_data\\bamfiles\\";
 		boolean recursive = true;
 		boolean combineFiles = false;
-		//default == 3 (minimum number of anchors, including partial)
-		int minSupport = 3;
+		//default == 1 (for now, because duplicate position filter needs to come before anchor filter)
+		int minSupport = 1;
 		//default 500
 		int maxReadsPerTrans = 1000;
 		//default -1 == all
@@ -100,7 +100,7 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			//if(f.getName().contains("BL30_LZB1_RB")) {
+			//if(f.getName().contains("BL11-L")) {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				

@@ -197,6 +197,11 @@ public class SamplePrimer {
 	public String getDNAsample() {
 		return this.DNAsample;
 	}
+	
+	public String getEcotype() {
+		return this.ecotype;
+	}
+	
 	public String getSampleString() {
 		return this.getSample()+"\t"+this.genotype+"\t"+this.DNAsample;
 	}
