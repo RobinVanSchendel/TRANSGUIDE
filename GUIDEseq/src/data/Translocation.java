@@ -30,7 +30,6 @@ public class Translocation {
 	private String filler = "";
 	private String hom = "";
 	private String jType ="";
-	private int minimumJunction = 0;
 	private String error;
 	private String ref;
 	private String realPositionCounter;
@@ -414,16 +413,6 @@ public class Translocation {
 		}
 	}
 	
-	/*
-	private String getTDNASequenceConsensus() {
-		if (this.TDNAcons.size() != 0){
-		return this.TDNAcons.getConsensusString();
-		}
-		else {
-			return "cannot get consensus";
-		}
-	}
-	*/
 	/** 
 	 * @param sr
 	 * @param replaceWithSpaces
@@ -884,15 +873,6 @@ public class Translocation {
 		}
 		return Integer.MIN_VALUE;
 	}
-	/*
-	private String getGenomicSequenceConsensus() {
-		if (this.TDNAgencons.size() != 0){
-		return this.TDNAgencons.getConsensusStringMinimum();
-		}
-		else {
-			return NOGENOMIC;
-		}
-	}*/
 
 	
 	private String getGenomicSequenceMostRepeated() {
@@ -988,25 +968,7 @@ public class Translocation {
 			return NOTRANSLOCATION;
 		}
 	}
-	/*
-	public String getTranslocationSequenceConsensus() {
-		if (this.TDNAfullcons.size() != 0){
-		return this.TDNAfullcons.getConsensusString();
-		}
-		else {
-			return NOTRANSLOCATION;
-		}
-	}
-	
-	public String getTranslocationSequenceConsensusMinimum() {
-		if (this.TDNAfullcons.size() != 0){
-		return this.TDNAfullcons.getConsensusStringMinimum();
-		}
-		else {
-			return NOTRANSLOCATION;
-		}
-	}
-	*/
+
 	private String getCigarString() {
 		ArrayList<String> cigars = new ArrayList<String>();
 		for(SAMRecord s: sams) {
@@ -1506,8 +1468,8 @@ public class Translocation {
 			if(this.isForward()==true) {
 				start = this.getRealPosition()-refSize;
 				//safety
-				if(start<0) {
-					start = 0;
+				if(start<1) {
+					start = 1;
 				}
 				end = this.getRealPosition();
 				if (end <= rsf.getSequence(this.getContigMate()).length()) {
@@ -1525,7 +1487,7 @@ public class Translocation {
 					}
 				}
 				if (end > rsf.getSequence(this.getContigMate()).length()) {
-					this.addError("Trying to get a coordinate from the wrong chromosome");
+					this.addError("Probably trying to get a coordinate from the wrong chromosome");
 				}
 			}
 			else {

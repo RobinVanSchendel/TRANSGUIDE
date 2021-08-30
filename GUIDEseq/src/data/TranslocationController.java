@@ -23,7 +23,7 @@ public class TranslocationController {
 	public static final int MAXANCHORDIST = 2000;
 	private int primerStart, primerEnd;
 	public static final String LB = "GTTTACACCACAATATATCCTGCCA";
-	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA";
+	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA"; //this is the default one
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
@@ -439,16 +439,7 @@ public class TranslocationController {
 		String intString = SATag.split(",|;")[1];
 		return Integer.parseInt(intString);
 	}
-	private static boolean getNMSATagis0(SAMRecord srec) {
-		String SATag = (String) srec.getAttribute("SA");
-		String intString = SATag.split(",|;")[5];
-		return Integer.parseInt(intString)<= SamplePrimer.getMaxMismatches();
-	}
-	private static boolean getNMSecondSATagis0(SAMRecord srec) {
-		String SATag = (String) srec.getAttribute("SA");
-		String intString = SATag.split(",|;")[11];
-		return Integer.parseInt(intString)<= SamplePrimer.getMaxMismatches();
-	}
+
 	private static String getContigSATag(SAMRecord srec) {
 		String SATag = (String) srec.getAttribute("SA");
 		return SATag.split(",|;")[0];
@@ -593,12 +584,6 @@ public class TranslocationController {
 
 	    return count;
 	}
-	private static int getSALength(SAMRecord sam) {
-		String SATag = (String) sam.getAttribute("SA");
-		String[] SAList = SATag.split(",|;");
-		int SALength = SAList.length;
-		return SALength;
-	}
 
 	public Translocation searchTranslocation(Translocation tl) {
 		if(this.searchRealPositions.size()==0) {
@@ -681,20 +666,5 @@ public class TranslocationController {
 			}
 		}
 	}
-	private String getContigImp(SAMRecord sam) {
-		if ((sp.getChr().equals(sam.getContig())==false) && (sam.getCigarLength()<=2)) {
-			return sam.getContig();
-		}
-		else {
-			if ((sp.getChr().equals(getContigSATag(sam))==true) && (getSACigarLength(sam)==2)) {
-				return getContigSATag(sam);
-			}
-			else {
-				if ((getSALength(sam)>6) && (sp.getChr().equals(getContigSecondSATag(sam))==true) && (getSASecondCigarLength(sam)==2)) {
-				return getContigSecondSATag(sam);
-				}
-			}
-		}
-		return "invalid chromosome";
-	}
+
 }
