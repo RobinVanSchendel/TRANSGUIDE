@@ -21,9 +21,6 @@ import htsjdk.samtools.ValidationStringency;
 
 public class GUIDESeqRun {
 	public static void main(String[] args) {
-		for(String str: args) {
-			//System.out.println(str);
-		}
 		Options optionsApache = createOptions();
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = null;
@@ -36,15 +33,6 @@ public class GUIDESeqRun {
 			System.exit(0);
 		}
 		MyOptions options = new MyOptions(cmd);
-		//String dir = "E:\\NGS\\Genome_Scan_104269\\umi_cons_bam\\";
-		//default == 2
-		//int minSupport = 2;
-		//default 500
-		//int maxReadsPerTrans = 1000;
-		//default -1 == all
-		//int maxTranslocation = -1;
-		//default -1 == all
-		//int maxReads = -1;
 		
 		File out = new File("out.txt");
 		
@@ -67,18 +55,9 @@ public class GUIDESeqRun {
 		
 		SamplePrimer sp = new SamplePrimer(options);
 		
-		//	System.out.println("contains");
-		//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
-			
-		String primer = sp.getPrimer();
-		String chr = sp.getChr();
-		File ref = sp.getRef();
-		
-		
 		System.out.println(options.printParameters());
         TranslocationController tc = new TranslocationController(sp);
         tc.testLBRB();
-        //should be -1
         tc.launchAnalysis(options.getMaxTranslocations(),options.getMaxReadsPerTrans(), options.getMaxReads());
         tc.print(bw, allEvents, (int)options.getMinSupport());
 		System.out.println("Output written to: "+out.getAbsolutePath());
