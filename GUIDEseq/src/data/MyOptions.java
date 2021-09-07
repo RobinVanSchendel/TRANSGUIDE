@@ -34,6 +34,18 @@ private String chr;
 		}
 		return f;
 	}
+	public boolean isLBOption() {
+		if(cmd.hasOption("LB")) {
+			this.isLB = true;
+			return true;
+		}
+		if(!cmd.hasOption("RB")){
+			System.err.println("No LB or RB specified");
+			System.exit(0);
+		}
+		this.isLB = false;
+		return false;
+	}
 
 	public File getRefFile() {
 		if(this.ref!=null) {
@@ -69,7 +81,8 @@ private String chr;
 		if(primer!=null) {
 			return primer.toUpperCase();
 		}
-		return cmd.getOptionValue("primer").toUpperCase();
+		String primer =  cmd.getOptionValue("primer").toUpperCase();
+		return primer.replace("TCAGACGTGTGCTCTTCCGATCT", "");
 	}
 	public String getPrimerPart(int number) {
 		String primer =  cmd.getOptionValue("primer").toUpperCase();
@@ -184,5 +197,57 @@ private String chr;
 
 	public void setChr(String chr) {
 		this.chr = chr;
+	}
+
+	public int getMaxTranslocations() {
+		return -1;
+	}
+
+	public int getMaxReadsPerTrans() {
+		return 1000;
+	}
+
+	public int getMaxReads() {
+		return -1;
+	}
+
+	public String getSample() {
+		return cmd.getOptionValue("n");
+	}
+
+	public String getDNAsample() {
+		if(cmd.hasOption("dna")) {
+			return cmd.getOptionValue("dna");
+		}
+		return "";
+	}
+
+	public String getGenotype() {
+		if(cmd.hasOption("genotype")) {
+			return cmd.getOptionValue("genotype");
+		}
+		return "";
+	}
+
+	public String getEcotype() {
+		if(cmd.hasOption("ecootype")) {
+			return cmd.getOptionValue("ecotype");
+		}
+		return "";
+	}
+
+	public String getP5() {
+		if(cmd.hasOption("P5")) {
+			return "P5";
+		}
+		else if(cmd.hasOption("P7")) {
+			return "P7";
+		}
+		return "";
+	}
+
+	public boolean isUMI() {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }

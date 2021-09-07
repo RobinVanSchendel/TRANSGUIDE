@@ -20,7 +20,7 @@ import org.jcvi.jillion.trace.fastq.FastqWriterBuilder;
 public class AddUMIToFastq {
 
 	public static void main(String[] args) {
-		String dir = "E:\\NGS\\Genome_Scan_104269\\Raw";
+		String dir = "E:\\NGS\\Genome_Scan_104596\\Raw";
 		ArrayList<File> R1s = getR1s(new File(dir));
 		for(File f: R1s) {
 			System.out.println(f.getName());

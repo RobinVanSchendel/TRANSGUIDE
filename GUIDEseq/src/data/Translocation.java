@@ -161,14 +161,9 @@ public class Translocation {
 					//no mismatches
 					int matchNucleotides = Translocation.getMatchLength(sam);
 					//System.out.println(this.getPosition());
-					//System.out.println(matchNucleotides+" "+sam.getMappingQuality());
+					//System.out.println(matchNucleotides+" "+sam.getMappingQuality()+" "+sam.getContig()+" "+sam.getAlignmentStart());
 					//System.out.println(sam.getCigarString());
 					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=anchorLength) {
-						if(this.getIGVPos().contentEquals("4:5085682") && anchorLength==150) {
-							System.out.println(sam.toString());
-							System.out.println(sam.getDuplicateReadFlag()); 
-						}
-						
 						count++;
 					}
 				}

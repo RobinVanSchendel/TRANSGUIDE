@@ -128,7 +128,6 @@ public class TranslocationController {
 	public void printContents(BufferedWriter bw, long minSupport) {
 		//sorting doesn't work at the moment
 		//trans.sort(comparing(Translocation::getNrSupportingReads, Collections.reverseOrder()));
-		//System.out.println("File\t"+Translocation.getHeader());
 		try {
 			int counter = 0;
 			for(String key: trans.keySet()){
@@ -164,21 +163,10 @@ public class TranslocationController {
 				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition()-around, tl.getPosition()+around, false);
 				int counter2 = 0;
 				//System.out.println(tl.getContigMate()+":"+tl.getPosition());
-				String testName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					//System.out.println(srec.getReadName());
-					if(srec.getReadName().contentEquals(testName)) {
-						System.err.println("found it"+srec.getReadName()+" "+srec.getReadLength());
-					}
 					if(srec.getContig()!=null) {
-						if(srec.getReadName().contentEquals(testName)) {
-							System.err.println("found it still here"+srec.getReadName()+" "+srec.getCigarString());
-							System.err.println("found it still here"+srec.getReadName()+" "+isDuplicate(srec));
-							System.err.println("found it still here"+srec.getReadName()+" "+tl.containsRecord(srec.getReadName()));
-							
-							
-						}
 						//if first read is in, why remove the second if it is duplicate?
 						/*
 						if(tl.containsRecord(srec.getReadName())) {
@@ -191,19 +179,10 @@ public class TranslocationController {
 						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
 							//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
 							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
-							if(srec.getReadName().contentEquals(testName)) {
-								System.err.println("found it adding"+srec.getReadName()+" "+srec.getReadLength());
-							}
 							boolean added = tl.addSam(srec);
-							if(srec.getReadName().contentEquals(testName)) {
-								System.err.println("added??? "+added);
-							}
 						}
 						//sometimes hard clipped reads went through our duplicate filter
 						if(isDuplicate(srec)) {
-							if(srec.getReadName().contentEquals(testName)) {
-								System.err.println("removing "+srec.getReadName());
-							}
 							tl.removeSam(srec);
 						}
 						//not sure if I want these
@@ -272,6 +251,7 @@ public class TranslocationController {
 		if(maxReads>=0) {
 			System.err.println("Warning: program will stop after "+maxReads+" reads");		
 		}
+		System.out.println(sp.getFile());
 		SamReader sr = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(sp.getFile());
 		SamReader sr2 = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(sp.getFile());
 		if(!sr.hasIndex()) {
@@ -310,7 +290,7 @@ public class TranslocationController {
     	end = index+sp.getPrimer().length();
     	primerStart = start+1;
     	primerEnd = end;
-    	System.out.println(primerStart+" "+primerEnd+" "+positiveStrand+" "+sp.getPrimer());
+    	System.out.println("Primers "+primerStart+" "+primerEnd+" "+positiveStrand+" "+sp.getPrimer());
     	//System.out.println("positions "+start+" - "+end);
     	//System.out.println("["+options.getChr()+"]");
     	//System.out.println(start);
@@ -484,6 +464,7 @@ public class TranslocationController {
         	}
         }
         System.out.println("Strand is forward: "+positiveStrand);
+        System.out.println("Found "+this.getTotalTranslocations()+" translocations");
         System.out.println("Found "+count+" reads");
         System.out.println("Found "+NM0Count+" NM0Count");
         System.out.println("Found "+duplicateFlag+" duplicateFlag (should be >0)");

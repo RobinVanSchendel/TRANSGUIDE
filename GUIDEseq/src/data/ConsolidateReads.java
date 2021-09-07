@@ -20,7 +20,7 @@ import org.jcvi.jillion.trace.fastq.FastqWriterBuilder;
 public class ConsolidateReads {
 
 	public static void main(String[] args) {
-		String dir = "E:\\NGS\\Genome_Scan_104269\\Raw\\UMI";
+		String dir = "E:\\NGS\\Genome_Scan_104596\\Raw\\UMI";
 		//int maxReads = 4000000;
 		int maxReads = 4000000;
 		if(args.length>1) {
