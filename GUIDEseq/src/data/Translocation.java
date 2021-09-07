@@ -24,10 +24,12 @@ public class Translocation {
 	private static final int minSizeInsertionSolver = 6;
 	private static final int ANCHORLENGTH = 50;
 	private static final int MINMAPPINGQUALITY = 50;
+	private static final String adapterSeq = "AGATCGGAAGAGCG"; //temporarily only 14 bp of the adapter. Later methods below should take the part they need from the full adapter sequence
 	public ArrayList<SAMRecord> sams;
 	public HashMap<String, Integer> names;
 	private String filler = "";
 	private String hom = "";
+	private String jType ="";
 	private String error;
 	private String ref;
 	private String realPositionCounter;
@@ -35,104 +37,98 @@ public class Translocation {
 	private String warning;
 	private InsertionSolverTwoSides is;
 	private Consensus TDNAcons;
-	private Consensus genomeCons;
-	private Consensus genomePrimerCons;
-	private ConsensusInt genomeConsInt;
-	private Consensus junctionAll;
+	private Consensus TDNAfullcons;
+	private Consensus TDNAgencons;
+	private Consensus junctionMinimumcons;
+	private StringBuffer splitReads = new StringBuffer();
 	private String sampleMatchingDNA = "";
 	private String sampleNonMatchingDNA = "";
 	private boolean multipleEvents = false;
 	private int countLBWeird;
-
+	public static final String testName = "M02948:174:000000000-JBDYN:1:2118:12143:22583";
+	
+	
+	/**
+	 * Constructor to make an instance of the Translocation class. Populate "sams" with reads (after some filtering and reverse complementing), and "names" with names of those reads.
+	 * @param s
+	 * @param sp
+	 */
 	public Translocation(SAMRecord s, SamplePrimer sp) {
 		sams = new ArrayList<SAMRecord>();
 		names = new HashMap<String, Integer>();
 		this.sp = sp;
 		addSam(s);
 	}
+	
+	/**
+	 * If the read aligns primarily to the plasmid, and the primary and secondary alignments in the SA tag are both the plasmid, return false.
+	 * In the other cases, if the first position in the SA tag is not the plasmid, if the read is reverse and if being the first read corresponds to whether the P5 adapter is used in the T-DNA side, take the reverse complement of the CIGAR.
+	 * Also do this if the second secondary alignment is genomic.
+	 * Then add samrecords to "sams"
+	 * and add samrecord names to "names"
+	 * @param s
+	 * @return true or false
+	 */
 	public boolean addSam(SAMRecord s) {
-		//do not add sams that have a primary and secondary alignment in contig one
-		if(s.getContig().equals(sp.getChr()) && getContigSATagIsContig(s,sp.getChr())) {
+		if(((s.getContig().equals(sp.getChr())==true) && (getContigSATagIsContig(s, sp.getChr())==true) && (getContigSATagIsContig2(s, sp.getChr())==true)) || (s.isSecondaryAlignment()==true)){
+			if(s.getReadName().contentEquals(testName)) { 
+			System.err.println("The read "+s.getReadName()+" with CIGAR "+s.getCigarString()+" has not been added");}
 			return false;
 		}
-		
-		byte[] quals = s.getBaseQualities();
-		String qualString = s.getBaseQualityString();
-		byte minQual = Translocation.getMinQuality(s);
-		int i=0;
-		for(byte b: quals) {
-			//System.out.println(b+" "+qualString.charAt(i));
-			i++;
-		}
-		//System.out.println(minQual);
-		if(minQual<20) {
-			//return false;
-		}
-		//System.exit(0);
-		//orientation should be correct, otherwise don't add
-		//remove this filter for now
-		//if(s.getContig().equals(SAMReader.str) && s.getReadNegativeStrandFlag() == SAMReader.forwardRB) {
-		//	return;
-		//}
-		//all others can be added
 		boolean takeRC = false;
-		if(!s.getContig().contentEquals(sp.getChr()) && s.getReadNegativeStrandFlag()!=true 
-				&& s.getFirstOfPairFlag()!=sp.isFirstOfPairFlag()) {
+		// only take RC of anchors if necessary, because this already happened for T-DNA reads.
+		if((s.getFirstOfPairFlag()!=sp.isFirstOfPairFlag()) && (s.getReadNegativeStrandFlag()==false)) {
 			takeRC = true;
 		}
-		else if(!s.getContig().contentEquals(sp.getChr()) && s.getReadNegativeStrandFlag()==true 
-				&& s.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
-			takeRC = true;
-		}
-		if(takeRC) {
-			s.setAttribute("OC", s.getCigarString());
-			s = Translocation.reverseComplementSAMRecord(s);
-		}
-		String testName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
 		if(s.getReadName().contentEquals(testName)) {
 			System.err.println("added "+s.getReadString());
 			System.err.println("added "+s.getCigarString());
+		}
+		if(takeRC == true) {
+			s.setAttribute("OC", s.getCigarString());
+			s = Translocation.reverseComplementSAMRecord(s);
 		}
 		sams.add(s);
 		names.put(s.getReadName(),0);
 		return true;
 	}
-	private static byte getMinQuality(SAMRecord s) {
-		byte min = Byte.MAX_VALUE;
-		for(byte b: s.getBaseQualities()) {
-			if(b<min) {
-				min = b;
-			}
-		}
-		return min;
-	}
+
+	/**
+	 * @param sr
+	 * @return String "srec" containing reverse complemented CIGAR of SAMRecord "sr"
+	 */
 	private static SAMRecord reverseComplementSAMRecord(SAMRecord sr) {
 		SAMRecord srec = sr.deepCopy();
-		String cigar = srec.getCigarString();
-		boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
+		//String cigar = srec.getCigarString();
+		//boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
 		
 		srec.reverseComplement();
 		//bug so reverse it myself
-		Cigar tempCigar = srec.getCigar();
+		//Cigar tempCigar = srec.getCigar();
 		
 		//bug so reverse it myself
-		if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
-			srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
-		}
+		//if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
+		//	srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
+		//}
 		
-		if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
-			Cigar rev = new Cigar();
+		//if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
+		//	Cigar rev = new Cigar();
 			//reverse the cigar
-			for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
-				rev.add(tempCigar.getCigarElement(i));
-			}
-			srec.setCigar(rev);
-		}
+		//	for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
+		//		rev.add(tempCigar.getCigarElement(i));
+		//	}
+		//	srec.setCigar(rev);
+		//}
 		return srec;
 	}
+	
+	/**
+	 * @return number of reads. This should be the sum of anchors and T-DNA reads.
+	 */
 	public int getNrSupportingReads() {
 		return sams.size();
 	}
+	
 	/**normal way to get the number of anchor
 	 * 
 	 * @param addPartial
@@ -141,10 +137,11 @@ public class Translocation {
 	public int getNrAnchors(boolean addPartial) {
 		return getNrAnchors(addPartial, ANCHORLENGTH);
 	}
+	
 	/**An anchor is defined as the read which does not contain the initial integration
 	 * read. In our T-DNA experiments P7 is the T-DNA read.
 	 * 
-	 * Count #reads that perfectly map to the genome.
+	 * Count #reads that perfectly map to the genome. Make a separate count of the anchors that align at least the length of "anchorlength" to the genome.
 	 * NM = 0
 	 * 151M (dependendent on read length) 
 	 * MAPQ>50
@@ -157,66 +154,74 @@ public class Translocation {
 			if(!sam.getContig().contentEquals(sp.getChr())) {
 				//only get the opposite reads
 				if(sam.getFirstOfPairFlag() != sp.isFirstOfPairFlag()) {
-					//System.out.println("Still here first "+sam.getReadName() + " "+Translocation.getNMis0(sam) +" "+ sam.getAttribute("NM"));
-					//no mismatches
-					int matchNucleotides = Translocation.getMatchLength(sam);
-					//System.out.println(this.getPosition());
-					//System.out.println(matchNucleotides+" "+sam.getMappingQuality()+" "+sam.getContig()+" "+sam.getAlignmentStart());
-					//System.out.println(sam.getCigarString());
-					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=anchorLength) {
-						count++;
-					}
-				}
-				//only if not counted already
-				else if(addPartial) {
 					int matchNucleotides = Translocation.getMatchLength(sam);
 					if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=anchorLength) {
 						count++;
 					}
+					else if(addPartial) {
+						if(sam.getMappingQuality()>MINMAPPINGQUALITY && matchNucleotides>=anchorLength) {
+							count++;
+						}
+						else {
+							if(sam.getReadName().equals(testName)) { 
+								System.err.println("The anchor "+testName+" has insufficient mapping quality or does not match enough with the reference");
+								}
+						}
+					}
 				}
+	
 			}
 		}
 		return count;
 	}
-	//get the the anchor length of this read, which is the first or last cigar, which has to be M and then the size
 	private static int getMatchLength(SAMRecord sam) {
-		CigarElement last = sam.getCigar().getLastCigarElement();
-		//require a match at the end, otherwise it is not an anchor
-		//all reads are now turned such that the cigar far right is the last one
-		if(last.getOperator() == CigarOperator.M){
-			return last.getLength();
+		if (sam.getCigarLength()==1) {
+			return sam.getCigar().getLastCigarElement().getLength();
 		}
-		/*
-		else {
-			System.err.println("What do we have here");
-			System.err.println(sam.getCigarString());
-			System.err.println(last);
-			System.err.println(sam.toString());
+		if (sam.getCigarLength()==2) {
+			CigarElement ce1 = sam.getCigar().getCigarElement(0);
+			CigarElement ce2 = sam.getCigar().getCigarElement(1);
+			if ((sam.getReadNegativeStrandFlag()==false) && (ce1.getOperator()==CigarOperator.M)) {
+				return ce1.getLength();
+			}
+			if ((sam.getReadNegativeStrandFlag()==true) && (ce2.getOperator()==CigarOperator.M)) {
+				return ce2.getLength();
+			}
+		}//the situation below can occur when there is a small deletion or insertion (of 1 bp) at the end of the read, especially with longer reads.
+		//but it can also be that there is a filler with a piece of genomic sequence in it, causing the detection of a longer insertion or deletion, but calling the filler as genomic, which is not desirable
+		if (sam.getCigarLength()==4) { 
+			CigarElement ce1 = sam.getCigar().getCigarElement(0);
+			CigarElement ce2 = sam.getCigar().getCigarElement(1);
+			CigarElement ce3 = sam.getCigar().getCigarElement(2);
+			CigarElement ce4 = sam.getCigar().getCigarElement(3);
+			if ((sam.getReadNegativeStrandFlag()==false) && ((ce2.getOperator()==CigarOperator.I) || (ce2.getOperator()==CigarOperator.D))&& (ce1.getOperator()==CigarOperator.M) && (ce3.getOperator()==CigarOperator.M)) {
+				if (ce2.getLength()==1){
+					return ce1.getLength()+ce3.getLength();
+				}
+				if (ce2.getLength()>1){
+					return ce1.getLength();
+				}
+			}
+			if ((sam.getReadNegativeStrandFlag()==true) && ((ce3.getOperator()==CigarOperator.I) || (ce3.getOperator()==CigarOperator.D))&& (ce2.getOperator()==CigarOperator.M) && (ce4.getOperator()==CigarOperator.M)) {
+				if (ce3.getLength()==1){
+					return ce2.getLength()+ce4.getLength();
+				}
+				if (ce3.getLength()>1){
+					return ce4.getLength();
+				}
+			}
 		}
-		*/
 		return 0;
 	}
-	public int getSizePrimary() {
-		int count = 0;
-		for(SAMRecord s: sams) {
-			if(!s.isSecondaryAlignment()) {
-				count++;
-			}
-		}
-		return count;
-	}
-	public int getSizeSecondary() {
-		int count = 0;
-		for(SAMRecord s: sams) {
-			if(s.isSecondaryAlignment()) {
-				count++;
-			}
-		}
-		return count;
-	}
+	/**
+	 * @return StringBuffer "sb" containing headers.
+	 */
 	public static String getHeader() {
 		StringBuffer sb  = new StringBuffer();
 		String s = "\t";
+		sb.append("Plasmid").append(s);
+		sb.append("Ecotype").append(s);
+		sb.append("Run").append(s);
 		sb.append("DNANonMatching").append(s);
 		sb.append("DNAMatching").append(s);
 		sb.append("multipleEvents").append(s);
@@ -226,13 +231,7 @@ public class Translocation {
 		sb.append("NrSupportingReads").append(s);
 		sb.append("NrAnchors").append(s);
 		sb.append("NrAnchorsIncludingPartial").append(s);
-		sb.append("NrSupportJunction").append(s);
-		sb.append("NrNotSupportJunction").append(s);
-		sb.append("NrSupportJunctionHQ").append(s);
-		sb.append("NrNotSupportJunctionGQ").append(s);
 		sb.append("countLBWeird").append(s);
-		sb.append("NrPrimaryAlignment").append(s);
-		sb.append("NrSecondaryAlignment").append(s);
 		sb.append("Chr").append(s);
 		sb.append("Position").append(s);
 		sb.append("RealPosition").append(s);
@@ -242,19 +241,13 @@ public class Translocation {
 		sb.append("IGVPos").append(s);
 		sb.append("isForward").append(s);
 		sb.append("CigarString").append(s);
-		sb.append("JunctionSequence").append(s);
-		sb.append("TDNASequence").append(s);
-		sb.append("GenomicSequence").append(s);
-		sb.append("getTDNASequenceNew").append(s);
-		sb.append("getGenomicSequenceNew").append(s);
-		sb.append("getGenomicSequenceIntNew").append(s);
-		sb.append("getGenomicSequenceIntMinMaxNew").append(s);
-		sb.append("getGenomicSequenceIntMedian").append(s);
-		sb.append("getGenomicSequenceIntMean").append(s);
-		sb.append("getGenomicSequenceIntSD").append(s);
-		sb.append("getMostRepeatedPreGenome").append(s);
-		sb.append("getMostRepeatedConsensus").append(s);
+		sb.append("TDNAPartMostRepeated").append(s);
+		sb.append("JunctionMostRepeated").append(s);
+		sb.append("GenomicPartMostRepeated").append(s);
 		sb.append("Type").append(s);
+		sb.append("MinimumJunctionConsensus").append(s);
+		sb.append("NrSupportingMinimumJunction").append(s);
+		sb.append("getFractionHighestContributorToMinimumJunction").append(s);
 		sb.append("Homology").append(s);
 		sb.append("HomologyLength").append(s);
 		sb.append("Filler").append(s);
@@ -272,9 +265,8 @@ public class Translocation {
 		sb.append("RefSequence").append(s);
 		sb.append("error").append(s);
 		sb.append("warning").append(s);
-		sb.append("isOK").append(s);
-		sb.append("getTDNASequenceDiffReads").append(s);
-		sb.append("getTDNASequenceDiffReadsHighestContributor");
+		sb.append("isOK");
+		
 		
 		return sb.toString();
 	}
@@ -282,6 +274,9 @@ public class Translocation {
 		//long start = System.currentTimeMillis();
 		StringBuffer sb  = new StringBuffer();
 		String s = "\t";
+		sb.append(getPlasmid()).append(s);
+		sb.append(getEcotype()).append(s);
+		sb.append(getRun()).append(s);
 		sb.append(sampleNonMatchingDNA).append(s);
 		sb.append(sampleMatchingDNA).append(s);
 		sb.append(this.multipleEvents).append(s);
@@ -291,13 +286,7 @@ public class Translocation {
 		sb.append(getNrSupportingReads()).append(s);
 		sb.append(getNrAnchors(false)).append(s);
 		sb.append(getNrAnchors(true)).append(s);
-		sb.append(getNrSupportJunction(false)).append(s);
-		sb.append(this.getNrNotSupportJunction(false)).append(s);
-		sb.append(getNrSupportJunction(true)).append(s);
-		sb.append(this.getNrNotSupportJunction(true)).append(s);
 		sb.append(countLBWeird).append(s);
-		sb.append(getSizePrimary()).append(s);
-		sb.append(getSizeSecondary()).append(s);
 		sb.append(getContigMate()).append(s);
 		sb.append(getPosition()).append(s);
 		sb.append(getRealPosition()).append(s);
@@ -307,19 +296,13 @@ public class Translocation {
 		sb.append(getIGVPos()).append(s);
 		sb.append(isForwardText()).append(s);
 		sb.append(getCigarString()).append(s);
-		sb.append(getTranslocationSequence()).append(s);
-		sb.append(getTDNASequence(false)).append(s);
-		sb.append(getGenomicSequence()).append(s);
-		sb.append(getTDNASequenceNew()).append(s);
-		sb.append(getGenomicSequenceNew()).append(s);
-		sb.append(getGenomicSequenceIntNew()).append(s);
-		sb.append(getGenomicSequenceIntMinMaxNew()).append(s);
-		sb.append(this.genomeConsInt.getMedian()).append(s);
-		sb.append(this.genomeConsInt.getMean()).append(s);
-		sb.append(this.genomeConsInt.getSD()).append(s);
-		sb.append(junctionAll.getMostRepeatedString()).append(s);
-		sb.append(junctionAll.getConsensusString()).append(s);
-		sb.append(getType()).append(s);
+		sb.append(getTDNASequenceMostRepeated()).append(s);
+		sb.append(getTranslocationSequenceMostRepeated()).append(s);
+		sb.append(getGenomicSequenceMostRepeated()).append(s);
+		sb.append(this.jType).append(s);
+		sb.append(getMinimumJunctionConsensus()).append(s);
+		sb.append(getNrHighestContributorToMinimumJunction()).append(s);
+		sb.append(getFractionHighestContributorToMinimumJunction()).append(s);
 		sb.append(getHomology()).append(s);
 		sb.append(getHomology().length()).append(s);
 		sb.append(getFiller()).append(s);
@@ -354,35 +337,16 @@ public class Translocation {
 		sb.append(ref).append(s);
 		sb.append(error).append(s);
 		sb.append(warning).append(s);
-		sb.append(isOK()).append(s);
-		sb.append(getTDNASequenceDiffReads()).append(s);
-		sb.append(getTDNASequenceDiffReadsHighestContributor());
-		//sb.append(getFillerSequenceDiffReads());
-		//sb.append(getFillerSequenceDiffReadsHighestContributor()).append(s);
+		sb.append(isOK());
 		
-		//sb.append("\n");
-
-		//for(SAMRecord sam: sams) {
-			//sb.append("\t"+sam.getSAMString());
-		//}
 		
 		String ret = sb.toString();
-		//long end = System.currentTimeMillis();
-		//long duration = end-start;
-		/*
-		System.out.println(duration +" nrSams: "+this.sams.size());
-		if(this.sams.size()==7441) {
-			for(SAMRecord sam: sams) {
-				System.out.println(sam.getReadString());
-				System.out.println(sam.getContig()+":"+sam.getAlignmentStart()+"-"+sam.getAlignmentEnd());
-			}
-			System.out.println(sp.getTDNALBPos());
-			System.out.println(sp.getTDNARBPos());
-			System.exit(0);
-		}
-		*/
+
 		return ret;
 	}
+	/**
+	 * @return the length between the translocation position, and the furthest base from the furthest read that does not primarily match to the plasmid
+	 */
 	private int getTailSize() {
 		int distance = 0;
 		int curPosition = this.getRealPosition();
@@ -402,6 +366,18 @@ public class Translocation {
 		int sizeOfTailAnchors = 150;
 		return getNrAnchors(false,sizeOfTailAnchors);
 	}
+	
+	
+	private String getPlasmid() {
+		return sp.getChr();
+	}
+	private String getRun() {
+		return sp.getRun();
+	}
+	private String getEcotype() {
+		return sp.getEcotype();
+	}
+	
 	private String getBarcodes() {
 		HashMap<String, Integer> bc = new HashMap<String, Integer>();
 		for(SAMRecord s: sams) {
@@ -427,100 +403,240 @@ public class Translocation {
 		}
 		return sb.toString();
 	}
-	private String getGenomicSequenceIntMinMaxNew() {
-		if(this.genomeConsInt.getMin()== this.genomeConsInt.getMax()) {
-			return this.genomeConsInt.getMin()+"";
+	private String getTDNASequenceMostRepeated() {
+		if (this.TDNAcons.size() != 0){
+		return this.TDNAcons.getMostRepeatedString();
 		}
-		return this.genomeConsInt.getMin()+"-"+this.genomeConsInt.getMax();
+		else {
+			return "cannot get most repeated";
+		}
 	}
-	private String getGenomicSequenceIntNew() {
-		return this.genomeConsInt.getMostRepeatedInt()+" found "+this.genomeConsInt.getMostRepeatedIntNr()+" from "+this.genomeConsInt.size();
-	}
-	private String getGenomicSequenceNew() {
-		return this.genomeCons.getConsensusString();
-	}
-	private String getTDNASequenceNew() {
-		return this.TDNAcons.getConsensusString();
-	}
-	private String getFillerSequenceDiffReads() {
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		String tdna = this.getTDNASequence();
-		//System.out.println("getFillerSequenceDiffReads");
-		//System.out.println(tdna);
-		ArrayList<String> al = new ArrayList<String>();
-		for(SAMRecord sr: sams) {
-			if(!sr.getContig().contentEquals(sp.getChr())) {
-				String part = getSoftClippedPart(sr);
-				CigarElement ce = sr.getCigar().getFirstCigarElement();
-				//take the RC here so that the filler is correctly aligned
-				//if(ce.getOperator() == CigarOperator.S) {
-				//	String part = Utils.reverseComplement(part);
+	
+	/** 
+	 * @param sr
+	 * @param replaceWithSpaces
+	 * @param sp
+	 * @return the part that matches with the T-DNA, excluding the genomic part or the filler.
+	 */
+	private static String getTDNAPart(SAMRecord sr, SamplePrimer sp) {
+		if (sr.getFirstOfPairFlag()== sp.isFirstOfPairFlag())  {
+			CigarElement ce1 = sr.getCigar().getCigarElement(0);
+			CigarElement ce2 = sr.getCigar().getCigarElement(1);
+			String SATag = (String) sr.getAttribute("SA");
+    		String[] SAList = SATag.split(",|;");
+    		int SALength = SAList.length;
+    		String SACigar = SATag.split(",|;")[3];
+    		int indexFirstM = SACigar.indexOf("M");
+			int indexFirstS = SACigar.indexOf("S");
+			if(sr.getReadName().contentEquals(testName)) {
+				System.out.println("getTDNApart - checkpoint1");
+			}
+			if ((sr.getContig().equals(sp.getChr())==true) && (sr.getCigarLength()==2)) {
+				if (sr.getReadNegativeStrandFlag()==false) {
+					if (ce1.getOperator().equals(CigarOperator.M)) {
+						int mLength = ce1.getLength();
+						String tdnaPart = sr.getReadString().substring(0, mLength);
+						return tdnaPart;
+					}
+				}
+				if (sr.getReadNegativeStrandFlag()==true) {
+					if (ce2.getOperator().equals(CigarOperator.M)) {
+						int mLength = ce2.getLength();
+						String tdnaPart = sr.getReadString().substring(0, mLength);
+						return tdnaPart;
+					}
+				}
+			}
+			else {
+				if ((sp.getChr().equals(getContigSATag(sr))==true) && (getSACigarLength(sr)==2)) {
+					if (getForwardSATag(sr)==false) {
+						if (indexFirstM > indexFirstS) {
+							int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+							String tdnaPart = sr.getReadString().substring(0, mLength);
+							return tdnaPart;
+						}
+					}
+					if (getForwardSATag(sr)==true) {
+						if (indexFirstM < indexFirstS) {
+							int mLength = Integer.parseInt(SACigar.substring(0, indexFirstM));
+							String tdnaPart = sr.getReadString().substring(0, mLength);
+							return tdnaPart;
+						}
+					}
+				}
+				else {
+					if ((SALength>6) && (sp.getChr().equals(getContigSecondSATag(sr))==true) && (getSASecondCigarLength(sr)==2)) {
+						String SACigar2 = SATag.split(",|;")[9];
+						int indexFirstM2 = SACigar2.indexOf("M");
+						int indexFirstS2 = SACigar2.indexOf("S");
+						if (getForwardSecondSATag(sr)==false) {
+							if (indexFirstS2 < indexFirstM2) {
+								int mLength = Integer.parseInt(SACigar2.substring(indexFirstS2+1, indexFirstM2));
+								String tdnaPart = sr.getReadString().substring(0, mLength);
+								return tdnaPart;
+							}
+						}
+						if (getForwardSecondSATag(sr)==true) {
+							if (indexFirstM2 < indexFirstS2) {
+								int mLength = Integer.parseInt(SACigar2.substring(0, indexFirstM2));
+								String tdnaPart = sr.getReadString().substring(0, mLength);
+								return tdnaPart;
+							}
+						}
+					}
+				}
+			}
+		}
 				
-				//al.add(Utils.reverseComplement(part));
-				//System.out.println("\t"+sr.getCigarString()+"\t"+sr.getReadString());
-//				System.out.println(sr.getReadName());
-	//			System.out.println(part);
+		if(sr.getReadName().contentEquals(testName)) { 
+			System.err.println("The T-DNA part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
 			}
-		}
-		for(String s: al) {
-			//System.out.println(s);
-		}
-		//Integer.parseInt("s");
-		//System.exit(0);
-		
 		return null;
 	}
-	private static String getSoftClippedPart(SAMRecord sr) {
-		if(sr.getCigarLength()==2) {
-			CigarElement ce = sr.getCigar().getCigarElement(0);
+	private static String getGenomicPart(SAMRecord sr, SamplePrimer sp) {
+		if (sr.getFirstOfPairFlag()== sp.isFirstOfPairFlag())  {
+			CigarElement ce1 = sr.getCigar().getCigarElement(0);
 			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			if(ce.getOperator() == CigarOperator.M && ce2.getOperator() == CigarOperator.S) {
-				return sr.getReadString().substring(ce.getLength());
+			String SATag = (String) sr.getAttribute("SA");
+    		String[] SAList = SATag.split(",|;");
+    		int SALength = SAList.length;
+    		String SACigar = SATag.split(",|;")[3];
+    		int indexFirstM = SACigar.indexOf("M");
+			int indexFirstS = SACigar.indexOf("S");
+			int indexLastS = SACigar.lastIndexOf("S");
+			//don't allow info beyond 150bp, but allow shorter.
+			int readlength = 150;
+			if (sr.getReadString().length() <150) {
+				readlength = sr.getReadString().length();
 			}
-			else if(ce.getOperator() == CigarOperator.S && ce2.getOperator() == CigarOperator.M) {
-				return sr.getReadString().substring(0, ce.getLength());
+			if(sr.getReadName().contentEquals(testName)) {
+				System.out.println("getgenomicpart - checkpoint1");
 			}
-		}
-		return null;
-	}
-	private static String getMatchedPart(SAMRecord sr, boolean replaceWithSpaces) {
-		if(sr.getCigarLength()==2) {
-			CigarElement ce = sr.getCigar().getCigarElement(0);
-			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			if(ce.getOperator() == CigarOperator.S && ce2.getOperator() == CigarOperator.M) {
-				String sPart = sr.getReadString().substring(0, ce.getLength());
-				if(replaceWithSpaces) {
-					return Translocation.getSpaces(sPart.length()) +  sr.getReadString().substring(ce.getLength());
+			if (sr.getContig().equals(sp.getChr())==true) {
+				if ((sp.getChr().equals(getContigSATag(sr))==true) && (SALength==12) && (sp.getChr().equals(getContigSecondSATag(sr))==false) ) {
+					if(sr.getReadName().contentEquals(testName)) {
+						System.out.println("getgenomicpart - checkpoint2");
+					}
+					String SACigar2 = SATag.split(",|;")[9];
+		    		int indexFirstM2 = SACigar2.indexOf("M");
+					int indexFirstS2 = SACigar2.indexOf("S");
+					int indexLastS2 = SACigar2.lastIndexOf("S");
+					if ((indexFirstM2 < indexFirstS2) && (indexFirstS2==indexLastS2)) {
+						int mLength = Integer.parseInt(SACigar2.substring(0, indexFirstM2));
+						if (sr.getReadString().length()-mLength < readlength){
+							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+							return genomicPart;
+						}
+					}
+					if ((indexFirstM2 > indexFirstS2) && (indexFirstS2==indexLastS2)) {
+						if(sr.getReadName().contentEquals(testName)) {
+							System.out.println("getgenomicpart - checkpoint3");
+						}
+						int mLength = Integer.parseInt(SACigar2.substring(indexFirstS2+1, indexFirstM2));
+						if (sr.getReadString().length()-mLength < readlength){
+							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+							return genomicPart;
+						}
+					}
 				}
-				return sr.getReadString().substring(ce.getLength());
-			}
-			else if(ce.getOperator() == CigarOperator.M && ce2.getOperator() == CigarOperator.S) {
-				String mPart = sr.getReadString().substring(ce.getLength());
-				if(replaceWithSpaces) {
-					return sr.getReadString().substring(0,ce.getLength()) + Translocation.getSpaces(mPart.length()) ;
+				if ((sp.getChr().equals(getContigSATag(sr))==false)) {
+					if (indexFirstS==indexLastS) {
+						if (indexFirstM < indexFirstS) {
+							if(sr.getReadName().contentEquals(testName)) {
+								System.out.println("getgenomicpart - checkpoint4");
+							}
+							int mLength = Integer.parseInt(SACigar.substring(0, indexFirstM));
+							if (sr.getReadString().length()-mLength < readlength){
+								String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+								return genomicPart;
+							}
+						}
+						if (indexFirstS < indexFirstM) {
+							if(sr.getReadName().contentEquals(testName)) {
+								System.out.println("getgenomicpart - checkpoint5");
+							}
+							int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+							if (sr.getReadString().length()-mLength < readlength){
+								String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+								return genomicPart;
+							}
+						}
+					}
+					else if (sr.getReadString().contains(adapterSeq) && (cigarStringFollowsSMS(SACigar))) {
+						if(sr.getReadName().contentEquals(testName)) {
+							System.out.println("getgenomicpart - checkpoint6");
+						}
+						int adapterLength = sr.getReadString().length()-sr.getReadString().indexOf(adapterSeq);
+						int s1Length = Integer.parseInt(SACigar.substring(0, indexFirstS));
+						int s2Length = Integer.parseInt(SACigar.substring(indexFirstM+1, indexLastS));
+						int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
+						if ((getForwardSATag(sr)==true) && (adapterLength==s2Length)) {
+							String genomicPart = sr.getReadString().substring(s1Length, s1Length+mLength);
+							return genomicPart;
+						}
+						if ((getForwardSATag(sr)==false) && (adapterLength==s1Length)) {
+							String genomicPart = sr.getReadString().substring(s1Length, s1Length+mLength);
+							return genomicPart;
+						}
+					}
 				}
-				return sr.getReadString().substring(0,ce.getLength());
 			}
-			//hard clipped can be returned as is
-			else if(ce.getOperator()==CigarOperator.H || ce2.getOperator()==CigarOperator.H) {
-				return sr.getReadString();
+			if (sr.getContig().equals(sp.getChr())==false) {
+				if(sr.getReadName().contentEquals(testName)) {
+					System.out.println("getgenomicpart - checkpoint7");
+				}
+				if (sr.getCigarLength()==2) {
+					if(sr.getReadName().contentEquals(testName)) {
+						System.out.println("getgenomicpart - checkpoint8");
+					}
+					if ((ce1.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==true))) {
+						if(sr.getReadName().contentEquals(testName)) {
+							System.out.println("getgenomicpart - checkpoint9a");
+						}
+						int mLength = ce1.getLength();
+						if (sr.getReadString().length()-mLength < readlength){
+							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+							if(sr.getReadName().contentEquals(testName)) {
+								System.out.println("getgenomicpart - checkpoint9b -: " +genomicPart);
+							}
+							return genomicPart;
+							
+							
+						}
+					}
+					if ((ce2.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==false))) {
+						if(sr.getReadName().contentEquals(testName)) {
+							System.out.println("getgenomicpart - checkpoint10");
+						}
+						int mLength = ce2.getLength();
+						if (sr.getReadString().length()-mLength < readlength){
+							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+							return genomicPart;
+						}
+					}
+				}
+				//if there is no adapter, then the filler likely has a longer genomic piece than the genomic end itself, and then the sequence is not useable.
+				if ((sr.getCigarLength()==3) && (sr.getReadString().contains(adapterSeq))) {
+					if(sr.getReadName().contentEquals(testName)) {
+						System.out.println("getgenomicpart - checkpoint11");
+					}
+					int adapterLength = sr.getReadString().length()-sr.getReadString().indexOf(adapterSeq);
+					CigarElement ce3 = sr.getCigar().getCigarElement(2);
+					if ((ce2.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==true)) && (ce1.getLength()==adapterLength)) {
+						String genomicPart = sr.getReadString().substring(ce1.getLength(), ce1.getLength()+ce2.getLength());
+						return genomicPart;		
+					}
+					if ((ce2.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==false)) && (ce3.getLength()==adapterLength)) {
+						String genomicPart = sr.getReadString().substring(ce1.getLength(), ce1.getLength()+ce2.getLength());
+						return genomicPart;	
+					}
+				}
 			}
-			System.err.println("weird reads..."+sr.getCigarString());
 		}
-		else if(sr.getCigarLength()==1) {
-			CigarElement ce = sr.getCigar().getCigarElement(0);
-			if(ce.getOperator() == CigarOperator.M) {
-				return sr.getReadString();
+		if(sr.getReadName().contentEquals(testName)) { 
+			System.err.println("The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
 			}
-		}
 		return null;
-	}
-	private static String getSpaces(int length) {
-		StringBuffer sb = new StringBuffer(length);
-		for(int i=0;i<length;i++) {
-			sb.append(" ");
-		}
-		return sb.toString();
 	}
 	private boolean getFillerIsTemplated(int start, int end, int maxTries) {
 		if(this.isOK() && this.getFiller().length()>=minSizeInsertionSolver){
@@ -554,6 +670,12 @@ public class Translocation {
 		}
 		return false;
 	}
+	/**
+	 * 
+	 * @param start
+	 * @param end
+	 * @return the sequence in the reference genome between "start" and "end"
+	 */
 	private String getGenomicSequenceRelative(int start, int end) {
 		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //SAMRecordIterator r = sr.iterator();
@@ -584,7 +706,7 @@ public class Translocation {
 	    String chr = sp.getChr();
 	    
 	    ReferenceSequence rs = rsf.getSequence(chr);
-	    String tdna = this.getTDNASequence();
+	    String tdna = this.getTDNASequenceMostRepeated();
 	    for(SAMRecord sam: sams) {
 	    	if(sam.getReadString().startsWith(tdna) && sam.getContig().equals(sp.getChr())) {
 	    		if(!sam.getReadNegativeStrandFlag()) {
@@ -626,43 +748,6 @@ public class Translocation {
 		}
 		return this.getDistanceToRB();
 	}
-	
-	private int getDistanceToRB() {
-		String seq = this.getTDNASequence();
-		int RBPos = sp.getTDNARBPos();
-		ArrayList<Integer> posA = new ArrayList<Integer>();
-		for(SAMRecord sam: sams) {
-			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(sp.getChr())) {
-				if(!sp.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = sam.getAlignmentEnd()-RBPos;
-					posA.add(distance);
-				}
-				else if(sp.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = RBPos-sam.getAlignmentStart();
-					posA.add(distance);
-				}
-				else {
-					//Probably better to know if sample is directed at LB or RB
-					return Integer.MAX_VALUE;
-					/*
-					System.err.println(sp.getTDNARBisForward());
-					System.err.println(sp.getPrimer());
-					System.err.println(sam.getReadNegativeStrandFlag());
-					System.err.println(sam.getReadString());
-					System.err.println("RB: Some logical erro in my thinking...");
-					System.exit(0);
-					*/
-				}
-			}
-		}
-		if(posA.size()>0) {
-			return consensusInt(posA);
-		}
-		return Integer.MIN_VALUE;
-	}
-	private String getTDNASequence() {
-		return this.getTDNASequence(false);
-	}
 	public boolean isOK() {
 		return !this.hasErrors();
 	}
@@ -676,233 +761,63 @@ public class Translocation {
 		}
 		return "RB";
 	}
-	private int getNrSupportJunction(boolean qual) {
-		if(this.hasErrors()) {
-			return -1;
-		}
-		String junctionMin = this.getMinimalJunction();
-		int count = 0;
-		for(SAMRecord s: sams) {
-			if(qual) {
-				int minQual = Translocation.getMinQuality(s);
-				if(minQual<sp.getMinQuality()) {
-					continue;
-				}
-			}
-			//not enough to match only TDNA
-			if(this.getTDNASequence().contentEquals(s.getReadString())) {
-				continue;
-			}
-			//only the ones which are supposed to be equal to the junction
-			if(s.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
-				String seq = s.getReadString();
-				if(seq.contains(junctionMin) || junctionMin.contains(seq)) {
-					count++;
-				}
-			}
-		}
-		return count;
-	}
-	private int getNrNotSupportJunction(boolean qual) {
-		if(this.hasErrors()) {
-			return -1;
-		}
-		String junctionMin = this.getMinimalJunction();
-		String genome =  this.getGenomicSequence();
-		int count = 0;
-		if(this.getRealPosition()==8019692) {
-			System.out.println(junctionMin);
-			System.out.println("Comparing the following seqs");
-		}
-		countLBWeird=0;
-		for(SAMRecord s: sams) {
-			if(qual) {
-				int minQual = Translocation.getMinQuality(s);
-				if(minQual<sp.getMinQuality()) {
-					continue;
-				}
-			}
-			String seq = s.getReadString();
-			//stuff that matches genome is ok
-			if(genome.startsWith(s.getReadString()) || s.getReadString().startsWith(genome)) {
-				continue;
-			}
-			//only the ones which are supposed to be equal to the junction
-			if(s.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
-				if(!seq.contains(junctionMin) && !junctionMin.contains(seq)) {
-					if(this.getRealPosition()==8019692) {
-						System.out.println(Translocation.getMinQuality(s)+"\t"+s.getCigarString()+"\t"+seq+"\t"+s.toString()+"\t"+s.getMateReferenceName()+":"+s.getMateAlignmentStart() );
-					}
-					count++;
-				}
-				else if(!seq.startsWith(sp.getPrimer()) && s.getCigar().getFirstCigarElement().getOperator()!=CigarOperator.H) {
-					if(this.getRealPosition()==8019692) {
-						System.out.println("x"+Translocation.getMinQuality(s)+"\t"+s.getCigarString()+"\t"+seq);
-					}
-					count++;
-				}
-				if(qual && seq.startsWith("GATAATTCAATTCGGCGTTAATTCAGTACATTAAAAACGTCCGCAATGTGTTACTAGATCGACCGGCATGCAAGCT")) {
-					this.countLBWeird++;
-				}
-			}
-		}
-		if(this.getRealPosition()==8019692) {
-			//System.exit(0);
-		}
-		return count;
-	}
-
 	private String isForwardText() {
 		if(this.isForward()) {
 			return "forward";
 		}
 		return "reverse";
 	}
-	private String getMinimalJunction() {
-		return getMinimalJunction(false);
-	}
-	/**get only the junction, 30bp of TDNA and 30bp of genome (plus filler)
-	 * 
-	 * @return
-	 */
-	private String getMinimalJunction(boolean debug) {
-		int size = 30;
-		int locJunction = -1;
-		String tdnaOrig = this.getTDNASequence();
-		String junction = this.getTranslocationSequence(debug);
-		String genomicOrig = this.getGenomicSequence();
-		//might overshoot otherwise
-		String tdna = Utils.longestCommonSubstring(tdnaOrig, junction);
-		String genomic = Utils.longestCommonSubstring(genomicOrig, junction);
-		//System.out.println("genomic: "+genomic);
-		//System.out.println("genomicOrig: "+genomicOrig);
-		//System.out.println(genomic.indexOf(genomicOrig));
-		//junction has to start with tdna
-		if(junction.indexOf(tdna)!=0) {
-			addError("TDNA not ok");
-		}
-		if(genomicOrig.indexOf(genomic)!=0) {
-			locJunction = findGenomicPart(genomicOrig, junction);
-			if(debug) {
-				System.out.println("getMinimalJunctionDEBUG");
-				System.out.println(genomicOrig);
-				System.out.println(genomic);
-				System.out.println(junction);
-				System.out.println("locJunction: "+locJunction);
-			}
-			if(locJunction==-1) {
-				addError("genomic not ok");
-			}
-			//System.out.println(genomicOrig);
-			//System.out.println(genomic);
-		}
-		
-		if(genomic.length()>size) {
-			genomic = genomic.substring(0, size);
-		}
-		int start = 0;
-		int end = junction.indexOf(genomic)+genomic.length();
-		//overwrite with value calculated earlier
-		if(locJunction!=-1) {
-			end = junction.length()-locJunction;
-		}
-		if(end<start) {
-			return junction+"INSERT_TOO_LONG?";
-		}
-		return junction.substring(start, end);
-	}
-	private int findGenomicPart(String genomicOrig, String junction) {
-		//speed up?
-		int location = junction.indexOf(genomicOrig);
-		if(location!=-1) {
-			return location;
-		}
-		
-		int max = Math.min(genomicOrig.length(), junction.length());
-		int maxHit = -1;
-		//BUG: should be a minumum of 5 nucleotides
-		for(int i=5;i<=max;i++) {
-			String seqJ = junction.substring(junction.length()-i);
-			if(genomicOrig.startsWith(seqJ)) {
-				maxHit = i;
-			}
-		}
-		return maxHit;
-	}
 	private String getHomology() {
 		return this.hom;
 	}
+	
+	
+	/**
+	 * @return this.filler
+	 */
 	private String getFiller() {
 		return this.filler;
 	}
-	private String getType() {
-		if(this.hasErrors()) {
-			return "Probably not correct";
-		}
-		if(this.getNrAnchors(false)==0) {
-			return "Probably not correct";
-		}
-		String junction = this.getTranslocationSequence();
-		String genomic = this.getGenomicSequence();
-		String tdnaLCS = Utils.longestCommonSubstring(this.getTDNASequence(), junction);
-		int location = findGenomicPart(genomic, junction);
-		String genomicLCS = Utils.longestCommonSubstring(genomic, junction);
-		//System.out.println(location);
-		//System.out.println(genomicLCS);
-		//System.out.println(junction);
-		//System.out.println(getGenomicSequence());
-		//System.out.println(tdnaLCS);
-		
-		int startTDNA = junction.indexOf(tdnaLCS);
-		int endTDNA = startTDNA+tdnaLCS.length();
-		int startGenomic = -1;
-		if(!genomic.startsWith(genomicLCS) && location != -1) {
-			startGenomic = junction.length()-location;
-		}
-		else {
-			startGenomic = junction.indexOf(genomicLCS);
-		}
-		if(endTDNA <0 || startGenomic <0) {
-			return "Probably not correct";
-		}
-		if(endTDNA>=startGenomic) {
-			hom = this.getTranslocationSequence().substring(startGenomic, endTDNA);
-			return "NON-FILLER";
-		}
-		else {
-			filler = this.getTranslocationSequence().substring(endTDNA, startGenomic);
-			return "FILLER";
-		}
-	}
-	private int getDistanceToLB() {
-		String seq = this.getTDNASequence();
-		int LBPos = sp.getTDNALBPos();
+
+	
+	private int getDistanceToRB() {
+		int RBPos = sp.getTDNARBPos();
 		ArrayList<Integer> posA = new ArrayList<Integer>();
 		for(SAMRecord sam: sams) {
-			if(sam.getReadString().startsWith(seq) && sam.getContig().equals(sp.getChr())) {
-				//System.out.println(sam.getReadNegativeStrandFlag());
-				//System.out.println(seq);
-				
-				if(sp.getTDNALBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = sam.getAlignmentEnd()-LBPos;
-					posA.add(distance);
-				}
-				else if(!sp.getTDNALBisForward() && !sam.getReadNegativeStrandFlag()) {
-					int distance = LBPos-sam.getAlignmentStart();
-					posA.add(distance);
+			if(sam.getFirstOfPairFlag()==false) {
+				if ((sam.getContig().equals(sp.getChr())) && (sam.getCigarLength()==2)){
+					if ((sp.getTDNARBisForward()==false) && (sam.getReadNegativeStrandFlag()==false)) { //A00379:349:HM7WFDSXY:4:1610:23384:24330-4 & A00379:349:HM7WFDSXY:4:2158:11451:16313 (BL29_LZB2_RB_1_30044710) & A00379:349:HM7WFDSXY:4:1218:1796:29528-3 (BL29_LZB2_RB_1_27525504)
+						int distance = (sam.getAlignmentEnd())-RBPos;
+						posA.add(distance);
+					}
+					if ((sp.getTDNARBisForward()==true) && (sam.getReadNegativeStrandFlag()==true) ) { //A00379:349:HM7WFDSXY:4:1443:4155:21120-3 (BL25_LZB1_RB_2_7137561)
+						int distance = (RBPos-sam.getAlignmentStart());
+						posA.add(distance);
+					}
 				}
 				else {
-					//probably this is a read at the RB side
-					return Integer.MAX_VALUE;
-					/*
-					System.err.println(sp.getTDNALBisForward());
-					System.err.println(sp.getPrimer());
-					System.err.println(sam.getReadNegativeStrandFlag());
-					System.err.println(sam.getReadString());
-					
-					System.err.println("LB: Some logical erro in my thinking...");
-					System.exit(0);
-					*/
+					if ((getContigSATag(sam).equals(sp.getChr())==true) && (getSACigarLength(sam)==2)){ 
+						if ((sp.getTDNARBisForward()==false) && (getForwardSATag(sam)==true) ) { //A00379:349:HM7WFDSXY:4:1258:25102:13244-2 (BL29_LZB2_RB_1_30044710) & A00379:349:HM7WFDSXY:4:1347:6406:9392-2 (BL29_LZB2_RB_1_27525504)
+							int distance = (getPosSATagEnd(sam)-(RBPos));
+							posA.add(distance);
+						}
+						if ((sp.getTDNARBisForward()==true) && (getForwardSATag(sam)==false) ) {//A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
+							int distance = RBPos-(getPosSATag(sam));
+							posA.add(distance);
+						}
+					}
+					else {
+						if ((getSALength(sam)>6) && (getContigSecondSATag(sam).equals(sp.getChr())==true) && (getSASecondCigarLength(sam)==2)){
+							if ((sp.getTDNARBisForward()==false) && (getForwardSecondSATag(sam)==true) ) { //
+								int distance = (getPosSATagEnd2(sam)-(RBPos));
+								posA.add(distance);
+							}
+							if ((sp.getTDNARBisForward()==true) && (getForwardSecondSATag(sam)==false) ) {//M02948:174:000000000-JBDYN:1:1101:17357:17713 (LZ64-1-R-4-17861618)
+								int distance = RBPos-(getPosSATag2(sam));
+								posA.add(distance);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -911,418 +826,146 @@ public class Translocation {
 		}
 		return Integer.MIN_VALUE;
 	}
-	private String getGenomicSequence() {
-		return getGenomicSequence(false);
-	}
-
-	private String getGenomicSequence(boolean debug) {
-		//search for the sequences that give the genomic sequence
-		ArrayList<String> seqs = new ArrayList<String>();
-	
-		for(SAMRecord srec: sams) {
-			if(!srec.isSecondaryAlignment() && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag()
-					&& cigarStringFollowsMSH(srec.getCigarString()) 
-					&& !srec.getContig().equals(sp.getChr())
-					&& getNMis0(srec)) {
-				if(debug) {
-					System.out.println(srec.getCigarString()+" "+srec.getDuplicateReadFlag() + " "+srec.getAlignmentStart()+"-"+srec.getAlignmentEnd() + " "+ srec.getMappingQuality()+ " "+srec.getReadName());
-				}
-				//add the correct part of the seq
-				CigarElement ce = srec.getCigar().getCigarElement(0);
-				CigarElement ce2 = srec.getCigar().getCigarElement(0);
-				if((ce.getOperator() == CigarOperator.S || ce.getOperator() == CigarOperator.H) &&
-						ce2.getOperator() == CigarOperator.M){
-					if(debug) {
-						System.out.println("SEQ1\t"+srec.getReadString().substring(ce.getLength()));
+	private int getDistanceToLB() {
+		int LBPos = sp.getTDNALBPos();
+		ArrayList<Integer> posA = new ArrayList<Integer>();
+		for(SAMRecord sam: sams) {
+			if(sam.getFirstOfPairFlag()==false) {
+				if ((sam.getContig().equals(sp.getChr())) && (sam.getCigarLength()==2)){
+					if ((sp.getTDNARBisForward()==true) && (sam.getReadNegativeStrandFlag()==false)) { 
+						int distance = (sam.getAlignmentEnd())-LBPos;
+						posA.add(distance);
 					}
-					String part = "";
-					if(ce.getOperator() == CigarOperator.H) {
-						part = srec.getReadString();
+					if ((sp.getTDNARBisForward()==false) && (sam.getReadNegativeStrandFlag()==true) ) { 
+						int distance = (LBPos-sam.getAlignmentStart());
+						posA.add(distance);
+					}
+				}
+				else {
+					if ((getContigSATag(sam).equals(sp.getChr())==true) && (getSACigarLength(sam)==2)){ 
+						if ((sp.getTDNARBisForward()==true) && (getForwardSATag(sam)==true) ) { 
+							int distance = (getPosSATagEnd(sam)-(LBPos));
+							posA.add(distance);
+						}
+						if ((sp.getTDNARBisForward()==false) && (getForwardSATag(sam)==false) ) {
+							int distance = LBPos-(getPosSATag(sam));
+							posA.add(distance);
+						}
 					}
 					else {
-						part = srec.getReadString().substring(ce.getLength());
-					}
-					int end = 150;
-					//System.out.println(srec.getCigarString());
-					//trim to 150
-					if(end>part.length()) {
-						end = part.length();
-					}
-					part = part.substring(0, end);
-					seqs.add(part);
-				}
-				if(debug) {
-					System.out.println(" adding "+srec.getContig());
-					System.out.println(srec.getReadString());
-				}
-			}
-			else if(debug) {
-				/*
-				System.out.println("not survived filer");
-				System.out.println(srec.getCigarString());
-				System.out.println(!srec.isSecondaryAlignment());
-				System.out.println(srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag());
-				System.out.println(!srec.getContig().equals(sp.getChr()));
-				System.out.println(getNMis0(srec));
-				System.out.println(srec.getReadString());
-				*/
-			}
-		}
-		if(debug) {
-			System.out.println("size genomic "+seqs.size() +" number of sam records "+sams.size());
-			for(String s: seqs) {
-				System.out.println("\t\t"+s);
-			}
-		}
-		//sometimes this contains one read or so, so don't rely on this then
-		//5 is an arbitrary number
-		if(seqs.size()>=5) {
-			Consensus c = new Consensus(seqs);
-			String seq = c.getMostRepeatedString();
-			//System.out.println("CONSENSUS");
-			//System.out.println(seq);
-			//System.out.println("CONSENSUS");
-			return seq;
-		}
-		
-		//some location have only the second read mapping to the genome
-		int maxGenomeSizePart = 50;
-		for(SAMRecord srec: sams) {
-			if(debug) {
-				System.out.println("SAMRecord Iteration");
-				System.out.println(srec.getCigarString());
-				System.out.println(!srec.isSecondaryAlignment());
-				System.out.println(srec.getFirstOfPairFlag() != sp.isFirstOfPairFlag());
-				System.out.println(srec.getContig());
-				System.out.println(srec.getFirstOfPairFlag());
-			}
-			if(!srec.isSecondaryAlignment() && srec.getFirstOfPairFlag() != sp.isFirstOfPairFlag()
-					&& cigarStringFollowsMSH(srec.getCigarString()) 
-					&& !srec.getContig().equals(sp.getChr())) {
-				if(debug) {
-					System.out.println("sec:");
-					System.out.println(srec.getCigarString());
-					System.out.println(srec.getReadString());
-				}
-				CigarElement ce = srec.getCigar().getCigarElement(0);
-				if(ce.getOperator() == CigarOperator.S) {
-					String seq = srec.getReadString().substring(ce.getLength());
-					if(seq.length()>maxGenomeSizePart) {
-						seq = seq.substring(0,maxGenomeSizePart);
-					}
-					if(debug) {
-						System.out.println("seq2 :"+seq);
-					}
-					seqs.add(seq);
-				}
-				else {
-					String seq = srec.getReadString().substring(0,ce.getLength());
-					if(debug) {
-						System.out.println("seq1 :\t"+seq);
-					}
-					if(seq.length()>maxGenomeSizePart) {
-						seq = seq.substring(seq.length()-maxGenomeSizePart);
-					}
-					seq = Utils.reverseComplement(seq);
-					seqs.add(seq);
-					if(debug) {
-						System.out.println("seq1rc:\t"+seq);
-					}
-					
-				}
-				
-			}
-		}
-		if(debug) {
-			System.out.println("size genomic "+seqs.size());
-			for(String seq: seqs) {
-				System.out.println("\t"+seq);
-			}
-		}
-		if(seqs.size()>0) {
-			Consensus c = new Consensus(seqs);
-			String seq = c.getMostRepeatedString();
-			return seq;
-		}
-		//give up
-		return NOGENOMIC;
-	}
-	private String getTDNASequenceDiffReads(){
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		//simplest case if second in pair and primary alignment
-		
-		for(SAMRecord sam: sams) {
-			if(!sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				//up unto the M
-				CigarElement ce = sam.getCigar().getCigarElement(0);
-				//always correct?
-				if(ce.getOperator() != CigarOperator.M && sam.getCigar().numCigarElements() == 2) {
-					//System.err.println("bug still here");
-					//System.out.println(sam.getCigarString());
-					//System.out.println(sam.getReadString());
-				}
-				else {
-					int pos = ce.getLength();
-					String seq = sam.getReadString().substring(0, pos); 
-					if(!seqsDiff.containsKey(seq)) {
-						seqsDiff.put(seq, 0);
-					}
-					seqsDiff.put(seq,seqsDiff.get(seq)+1);
-				}
-			}
-			if(sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				String seq = sam.getReadString();
-				if(!seqsDiff.containsKey(seq)) {
-					seqsDiff.put(seq, 0);
-				}
-				seqsDiff.put(seq,seqsDiff.get(seq)+1);
-			}
-		}
-		double total = 0;
-		ArrayList<Integer> al = new ArrayList<Integer>();
-		for(String key: seqsDiff.keySet()) {
-			total+= seqsDiff.get(key);
-			al.add(seqsDiff.get(key));
-		}
-		//sort, highest first
-		Collections.sort(al, Collections.reverseOrder());
-		String highestTwo = "";
-		if(al.size()>=2) {
-			String highest = ""+al.get(0)/total;
-			String secondHighest = "|"+al.get(1)/total;
-			highestTwo = highest+secondHighest;
-			String one = null;
-			String two = null;
-			for(String key: seqsDiff.keySet()) {
-				if(seqsDiff.get(key)==al.get(0)) {
-					one = key;
-				}
-				if(seqsDiff.get(key)==al.get(1)) {
-					two = key;
-				}
-			}
-			int sizeDiff = Math.abs(one.length()-two.length());
-			highestTwo+="|"+sizeDiff;
-			
-		}
-		return seqsDiff.size()+"|"+total+"|"+highestTwo;
-	}
-	private double getTDNASequenceDiffReadsHighestContributor(){
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		//simplest case if second in pair and primary alignment
-		
-		for(SAMRecord sam: sams) {
-			if(!sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				//up unto the M
-				CigarElement ce = sam.getCigar().getCigarElement(0);
-				//always correct?
-				if(ce.getOperator() != CigarOperator.M && sam.getCigar().numCigarElements() == 2) {
-					//System.err.println("bug still here");
-					//System.out.println(sam.getCigarString());
-					//System.out.println(sam.getReadString());
-				}
-				else {
-					int pos = ce.getLength();
-					String seq = sam.getReadString().substring(0, pos); 
-					if(!seqsDiff.containsKey(seq)) {
-						seqsDiff.put(seq, 0);
-					}
-					seqsDiff.put(seq,seqsDiff.get(seq)+1);
-				}
-			}
-			//most go here!
-			if(sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				String seq = sam.getReadString();
-				if(!seqsDiff.containsKey(seq)) {
-					seqsDiff.put(seq, 0);
-				}
-				seqsDiff.put(seq,seqsDiff.get(seq)+1);
-			}
-		}
-		double total = 0;
-		int max = 0;
-		for(String key: seqsDiff.keySet()) {
-			total+= seqsDiff.get(key);
-			if(seqsDiff.get(key)>max) {
-				max = seqsDiff.get(key);
-			}
-		}
-		if(total>0) {
-			return max/total;
-		}
-		return -1;
-	}
-	private String getTDNASequence(boolean debug) {
-		ArrayList<String> seqs = new ArrayList<String>();
-		HashMap<String, Integer> seqsDiff = new HashMap<String, Integer>();
-		//simplest case if second in pair and primary alignment
-		if(debug) {
-			System.out.println("####TDNA adding:");
-		}
-		for(SAMRecord sam: sams) {
-			if(!sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				//up unto the M
-				CigarElement ce = sam.getCigar().getCigarElement(0);
-				//only do it if this is not the case
-				if(ce.getOperator() == CigarOperator.M) {
-					int pos = ce.getLength();
-					String seq = sam.getReadString().substring(0, pos); 
-					seqs.add(seq);
-					if(!seqsDiff.containsKey(seq)) {
-						seqsDiff.put(seq, 0);
-					}
-					seqsDiff.put(seq,seqsDiff.get(seq)+1);
-					if(debug) {
-						System.out.println("putting1 "+seq+" "+sam.getCigarString() +" "+sam.getReadString()+" "+sam.getContig()+" "+sam.getReadName());						
+						if ((getSALength(sam)>6) && (getContigSecondSATag(sam).equals(sp.getChr())==true) && (getSASecondCigarLength(sam)==2)){
+							if ((sp.getTDNARBisForward()==true) && (getForwardSecondSATag(sam)==true) ) { 
+								int distance = (getPosSATagEnd2(sam)-(LBPos));
+								posA.add(distance);
+							}
+							if ((sp.getTDNARBisForward()==false) && (getForwardSecondSATag(sam)==false) ) {
+								int distance = LBPos-(getPosSATag2(sam));
+								posA.add(distance);
+							}
+						}
 					}
 				}
 			}
-			//most go here!
-			if(sam.isSecondaryAlignment() && sam.getContig().equals(sp.getChr())) {
-				String seq = sam.getReadString();
-				seqs.add(seq);
-				if(!seqsDiff.containsKey(seq)) {
-					seqsDiff.put(seq, 0);
-				}
-				seqsDiff.put(seq,seqsDiff.get(seq)+1);
-				if(debug) {
-					System.out.println("putting2 "+seq+" "+sam.getCigarString()  );						
-				}
-				/*
-				if(this.getPosition()==2923296) {
-					for(SAMRecord sam2: sams) {
-						System.out.println(sam2.isSecondaryAlignment()+"\t"+sam2.getReadString());
-						System.out.println(sam2.getCigarString());
-						System.out.println(sam2.getReadName());
-						System.out.println(sam2.getFirstOfPairFlag());
-						System.out.println(sam2.getMappingQuality());
-					}
-					System.out.println(this.getNrAnchors(false));
-					//System.exit(0);
-				}
-				*/
-			}
 		}
-		if(debug) {
-			System.out.println("####TDNAdiff");
-			for(String s: seqsDiff.keySet()) {
-				System.out.println(seqsDiff.get(s)+"\t"+s);
-			}
-			System.out.println("####TDNAdiff end");
+		if(posA.size()>0) {
+			return consensusInt(posA);
 		}
-		if(seqs.size()>0) {
-			Consensus c = new Consensus(seqs);
-			String seq = c.getMostRepeatedString();
-			return seq;
-		}
-		return "unknown";
-	}
-	public String getTranslocationSequence() {
-		return getTranslocationSequence(false);
+		return Integer.MIN_VALUE;
 	}
 
-	public String getTranslocationSequence(boolean debug) {
-		ArrayList<String> seqs = new ArrayList<>();
-		if(debug) {
-			System.out.println("getTranslocationSequence".toUpperCase());
+	
+	private String getGenomicSequenceMostRepeated() {
+		if (this.TDNAgencons.size() != 0){
+		return this.TDNAgencons.getMostRepeatedString();
 		}
-		for(SAMRecord s:sams) {
-			if(s.getReadString().startsWith(sp.getPrimer())) {
-				if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString())) {
-					seqs.add(s.getReadString());
-					if(debug) {
-						//System.out.println("tak\t"+s.getReadString());
-						//System.out.println("tak\t"+s.getContig());
-						//System.out.println("tak\t"+s.getCigarString());
-						//System.out.println("tak\t"+s.getReadName());
-					}
-				}
-				//unless it is a secondary alignment and is a hard-clipped read
-				else if(s.getCigar().numCigarElements()>=2) {
-					//get second operator
-					if(s.isSecondaryAlignment() && s.getCigar().getCigarElement(1).getOperator() == CigarOperator.HARD_CLIP) {
-						if(debug) {
-							//System.out.println("tak\t"+s.getReadString());
-							//System.out.println("tak\t"+getReadTotalString(s));
-						}
-						seqs.add(getReadTotalString(s,2));
-					}
-				}
-				if(debug) {
-					/*
-					System.out.println("nie\t"+s.getReadString());
-					System.out.println("nieLong\t"+getReadTotalString(s));
-					System.out.println("nie\t"+s.getContig());
-					System.out.println("nie\t"+s.getCigarString());
-					System.out.println("nie\t"+s.getReadName());
-					System.out.println("nie\t"+cigarStringFollowsMSH(s.getCigarString()));
-					System.out.println("nie\t"+!s.isSecondaryAlignment());
-					System.out.println("========");
-					*/
-					//System.out.println(s.getReadString());
-					//System.out.println(s.getFirstOfPairFlag());
-					//System.out.println(s.getContig());
-					//System.out.println(s.getCigarString());
-					//System.out.println(s.getReadString().startsWith(sp.getPrimer()));
-				}
-			}
-			if(debug) {
-				//System.out.println("HIER!\t"+s.getReadString());
-				//System.out.println(s.getCigarString());
-				//System.out.println(!s.isSecondaryAlignment());
-			}
+		else {
+			return NOTRANSLOCATION;
 		}
-		if(debug) {
-			for(String s: seqs) {
-				System.out.println("\t"+s.length()+"\t"+s);
-			}
-			System.out.println("currently have: "+seqs.size());
-		}
-		if(seqs.size()>0) {
-			Consensus c = new Consensus(seqs);
-			String seq = c.getMostRepeatedString();
-			if(debug) {
-				System.out.println("CONSEN\t"+seq);
-			}
-			//only sequences with primer included are now added, so simply return
-			return seq;
-		}
-		if(debug) {
-			System.out.println("END OF getTranslocationSequence".toUpperCase());
-		}
-		return NOTRANSLOCATION;
 	}
-	/**Return the first nrCigarElements of this read. First the longest read is searched 
-	 * usually that is the one containing the soft-clipped parts
-	 * @param s
-	 * @param nrCigarElements
-	 * @return
+	
+	/**
+	 * @return fraction of full T-DNA reads that contribute to the consensus
 	 */
-	private String getReadTotalString(SAMRecord s, int nrCigarElements) {
-		SAMRecord longest = s;
-		for(SAMRecord sam: sams) {
-			if(sam.getReadName().contentEquals(s.getReadName())) {
-				if(sam.getFirstOfPairFlag() == s.getFirstOfPairFlag()) {
-					if(sam.getReadString().length()>longest.getReadString().length()) {
-						longest = sam;
-					}
-				}
-			}
+	private double getFractionHighestContributorToMinimumJunction(){
+		if (this.junctionMinimumcons.size() != 0){
+			return junctionMinimumcons.getMostRepeatedStringFraction();
 		}
-		if(longest.getCigarLength()>nrCigarElements) {
-			int length = 0;
-			for(int i=0;i<nrCigarElements;i++) {
-				length += longest.getCigar().getCigarElement(i).getLength();
-			}
-			return longest.getReadString().substring(0, length);
+		else {
+			return 0;
 		}
-		return longest.getReadString();
 	}
-	private static boolean cigarStringFollowsMSH(String cigarString) {
-		Pattern p = Pattern.compile("\\d*[MSH]\\d*[MSH]");
-		Matcher m = p.matcher(cigarString);
-		boolean b = m.matches();
-		return b;
+	
+	private double getNrHighestContributorToMinimumJunction(){
+		if (this.junctionMinimumcons.size() != 0){
+			return junctionMinimumcons.getMostRepeatedStringNr();
+		}
+		else {
+			return 0;
+		}
+	}
+	
+	public void getMinimumJunction() {
+		String junction = this.getTranslocationSequenceMostRepeated();
+		String genomic =  this.getGenomicSequenceMostRepeated();
+		String tdna = this.getTDNASequenceMostRepeated();
+		int startTDNA = junction.indexOf(tdna);
+		int endTDNA = startTDNA+tdna.length();
+		int startGenomic = junction.indexOf(genomic);
+		int minimumJunction = startGenomic+20;
+		if (minimumJunction < (endTDNA)) {
+			this.addError("error: homology between T-DNA and genome >20 bp");
+		}
+		if(startTDNA <0 || startGenomic <0) {
+			this.addError("error: either TDNA or genomic not found");
+			jType= "Not determined";
+		}
+		else {
+			if(endTDNA>=startGenomic) {
+				hom = junction.substring(startGenomic, endTDNA).toUpperCase();
+				jType= "NON-FILLER";
+			}
+			else {
+				filler = junction.substring(endTDNA, startGenomic).toUpperCase();
+				jType= "FILLER";
+			}
+		}
+		ArrayList<SAMRecord> tdnareads = new ArrayList<SAMRecord>();
+		this.junctionMinimumcons = new Consensus();
+		for(SAMRecord sr: sams) {
+			if(sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
+				tdnareads.add(sr);
+			}
+		}
+		for(SAMRecord sr: tdnareads) {
+			int readlength = minimumJunction;
+			if (sr.getReadString().length() >= minimumJunction) {
+				String readSequence = sr.getReadString().substring(0, readlength);
+				junctionMinimumcons.add(readSequence);
+			}
+			else {
+				removeSam(sr);
+				if(sr.getReadName().equals(testName)) { 
+					System.err.println("The read "+testName+" has been removed because it is smaller than the minimum junction");
+					}
+			}
+		}
+	}
+	private String getMinimumJunctionConsensus() {
+		if (this.junctionMinimumcons.size() != 0){
+			return this.junctionMinimumcons.getConsensusString();
+		}
+		else {
+			return NOTRANSLOCATION;
+		}
+	}
+	
+	public String getTranslocationSequenceMostRepeated() {
+		if (this.TDNAfullcons.size() != 0){
+		return this.TDNAfullcons.getMostRepeatedString();
+		}
+		else {
+			return NOTRANSLOCATION;
+		}
 	}
 
 	private String getCigarString() {
@@ -1333,14 +976,10 @@ public class Translocation {
 		Consensus c = new Consensus(cigars);
 		return c.getMostRepeatedString();
 	}
-	//TODO this consensus string likely only works if we align
-	//TODO the sequences correctly
-	//20190506 my solution is to put only substrings of the seq in the list
-	//this way I can avoid the problem of having tiling seqs
-	private static Consensus consensusString(ArrayList<String> list) {
-		Consensus c = new Consensus(list);
-		return c;
-	}
+	/**
+	 * @param list
+	 * @return the "mostRepeatedWord" integer 
+	 */
 	private static Integer consensusInt(ArrayList<Integer> list) {
 		Integer mostRepeatedWord 
 	    = list.stream()
@@ -1352,11 +991,16 @@ public class Translocation {
 	          .getKey();
 		return mostRepeatedWord;
 	}
-
+	/**
+	 * @return combination of the chromosome name that the mate aligns to, and the consensus position
+	 */
 	public String getIGVPos() {
 		return this.getContigMate()+":"+this.getRealPosition();
 	}
-
+	/**
+	 * if the number of supporting reads is greater than 0, for s in sams, if the mate is not primarily aligned to the plasmid, return the name of the chromosome the mate is primarily aligned to.
+	 * @return the name of the chromosome the mate aligns to, or null
+	 */
 	public String getContigMate() {
 		if(getNrSupportingReads()>0) {
 			for(SAMRecord s: sams) {
@@ -1364,114 +1008,390 @@ public class Translocation {
 					return s.getMateReferenceName();
 				}
 			}
-			//System.err.println("Hier gaat ie naar hetzelfde chromosoom");
 			for(SAMRecord s: sams) {
 				return s.getMateReferenceName();
 			}
 		}
 		return null;
 	}
-
 	public boolean isForward() {
 		if(getNrSupportingReads()>0) {
 			return sams.get(0).getMateNegativeStrandFlag()==false;
 		}
 		return false;
 	}
+	/**
+	 * get the consensus position without adding debug info
+	 * @return consensus position or mate position
+	 */
 	public int getRealPosition() {
 		return getRealPosition(false);
 	}
+	/**
+	 * Get the position as usual from the T-DNA reads.
+	 * From the anchors, also get the position. Even though the anchors usually do not match at the position, this information is written in the anchor anyway. But not always.
+	 * When it is written in the anchor, this position is the same for all anchors. If for some reason the position is not given correctly, then it will be different for different anchors.
+	 * Then the most occurring position will be the real position, and this will be returned. 
+	 * The reason why this (calling the real position) is necessary is that sometimes with large fillers you have a bigger alignment in the filler than outside (for the T-DNA read). This causes the actual position to shift.
+	 * @param debug
+	 * @return corrected position.
+	 */
 	public int getRealPosition(boolean debug) {
-		ArrayList<Integer> seqs = new ArrayList<Integer>();
+		ArrayList<Integer> positions = new ArrayList<Integer>();
 		for(SAMRecord s:sams) {
-			if(!s.isSecondaryAlignment() && cigarStringFollowsMSH(s.getCigarString()) 
-					&& !s.getContig().equals(sp.getChr())) {
-				//no mismatches
-				if(getNMis0(s)) {
-					//maybe get the actual position
-					String cigar = s.getCigarString();
-					if(s.getAttribute("OC")!=null) {
-						cigar = (String) s.getAttribute("OC");
-					}
-					int indexS = cigar.indexOf("S");
-					int indexM = cigar.indexOf("M");
-					if(indexS>=0 && indexS<indexM) {
-						seqs.add(s.getAlignmentStart());
-						if(debug) {
-							System.out.println(s.getAlignmentStart()+" "+getNMis0(s));
-						}
-					}
-					else {
-						seqs.add(s.getAlignmentEnd());
-						if(debug) {
-							System.out.println(s.getAlignmentEnd()+" "+getNMis0(s));
-						}
-
-					}
-					
+			if (s.getFirstOfPairFlag()==false) {
+				int position=getPosition2(s, sp);
+				if (position!=-1) {
+					positions.add(position);
 				}
-				else if(debug) {
-					System.out.println(s.getAlignmentStart()+" "+getNMis0(s)+" not used");
+				else {
+					//
 				}
 			}
+			//this may cause problems, but may also solve problems. test!
+			/*
+			if ((s.getFirstOfPairFlag()==true) && (s.getContig().equals(sp.getChr())==false)) {
+
+				if (s.getReadNegativeStrandFlag()==true){
+					int position = s.getAlignmentStart();
+					positions.add(position);
+				}
+				if (s.getReadNegativeStrandFlag()==false){
+					int position = s.getAlignmentEnd();
+					positions.add(position);
+				}
+			} */
 		}
-		if(seqs.size()>0) {
+		if(positions.size()>0) {
 			//because the read that is not the one connected to the T-DNA
 			//can also determine the consensus this might be a bit tricky
-			int pos = consensusInt(seqs);
+			int pos = consensusInt(positions);
 			int counter = 0;
 			int total = 0;
-			for(Integer i: seqs) {
+			for(Integer i: positions) {
 				if(i == pos) {
 					counter++;
 				}
 				total++;
 			}
-			this.realPositionCounter = counter+" from "+total;
+			this.realPositionCounter = counter+" of "+total;
 			return pos;
 		}
-		return sams.get(0).getMateAlignmentStart();
-		
+		this.addError("No positions found");
+		return Integer.MAX_VALUE;
 	}
+	/**
+	 * @return sams
+	 */
 	public ArrayList<SAMRecord> getSams(){
 		return sams;
 	}
-	
+	/**
+	 * @return chromosomal position integer of the first record in "sams"
+	 */
 	public int getPosition() {
 		//String consensus = getCigarString();
-		return Translocation.getPosition(sams.get(0), sp);
+		return Translocation.getPosition2(sams.get(0), sp);
 		//found a bug here!
 		//return sams.get(0).getMateAlignmentStart();
 	}
-	public static int getPosition(SAMRecord s, SamplePrimer sp) {
-		//info is in the SA tag
-		if(s.isSecondaryAlignment() && !getContigSATagIsContig(s, sp.getChr())) {
-			int position = getPosSATag(s);
-			//System.out.println("SA Tag position "+position );
-			return position;
-		}
-		//rough estimate is in the mate
-		return s.getMateAlignmentStart();
+	/**
+	 * If the read aligns to the plasmid, but there is a secondary alignment,
+	 * and the secondary alignment is not to the plasmid, then get the location in that secondary alignment.
+	 * and if the secondary alignment is to the plasmid, but the tertiary alignment is not, then get the location on that tertiary alignment.
+	 * If instead the read does not align to the plasmid, then get the end of the primary alignment. 
+	 * @param s
+	 * @param sp
+	 * @return a chromosomal position integer. 
+	 */
+	public static int getPosition2(SAMRecord s, SamplePrimer sp) {
+			if ((s.getContig().equals(sp.getChr())==false) && (s.getCigarLength()==2)) {
+				if (s.getReadNegativeStrandFlag()==true){
+					return s.getAlignmentEnd();
+				}
+				if (s.getReadNegativeStrandFlag()==false){
+					return s.getAlignmentStart();
+				}
+			}
+			else {
+				if ((sp.getChr().equals(getContigSATag(s))==false) && (getSACigarLength(s)==2)) {
+					if (getForwardSATag(s)==true) {
+						return getPosSATag(s);
+					}
+					if (getForwardSATag(s)==false) {
+						return getPosSATagEnd(s);
+					}
+				}
+				else {
+					if ((getSALength(s)>6) && (sp.getChr().equals(getContigSecondSATag(s))==false) && (getSASecondCigarLength(s)==2)) {
+						if (getForwardSecondSATag(s)==true) {
+							return getPosSATag2(s);
+						}
+						if (getForwardSecondSATag(s)==false) {
+							return getPosSATagEnd2(s);
+						}
+					}
+				}
+			}
+		return -1;
+		
 	}
-
+	private static String getContigSATag(SAMRecord sr) {
+		String SATag = (String) sr.getAttribute("SA");
+		return SATag.split(",|;")[0];
+	}
+	private static String getContigSecondSATag(SAMRecord sr) {
+		String SATag = (String) sr.getAttribute("SA");
+		return SATag.split(",|;")[6];
+	}
+	/**
+	 * If the samrecord "s" has an SA tag, get the Chr from that SA tag. THen compare to the Chr from "str". If equal, return true.
+	 * If they are not equal, or if there is no SA tag, return false.
+	 * @param s
+	 * @param str
+	 * @return true or false
+	 */
 	private static boolean getContigSATagIsContig(SAMRecord s, String str) {
-		if(s.isSecondaryAlignment()) {
+		if(s.getAttribute("SA") != null) {
 			String SATag = (String) s.getAttribute("SA");
 			String contigString = SATag.split(",")[0];
 			return contigString.equals(str);
 		}
 		return false;
 	}
-
-
-	private static int getPosSATag(SAMRecord s) {
-		if(s.isSecondaryAlignment()) {
+	/**
+	 * If the samrecord "s" has an SA tag, get the Chr from the second alignment in that SA tag. THen compare to the Chr from "str". If equal, return true.
+	 * Else return false. False also includes records that don't have an SA tag, or when the SA tag does not have a secondary alignment.
+	 * @param s
+	 * @param str
+	 * @return true or false
+	 */
+	private static boolean getContigSATagIsContig2(SAMRecord s, String str) {
+		if(s.getAttribute("SA") != null) {
 			String SATag = (String) s.getAttribute("SA");
-			String intString = SATag.split(",")[1];
-			return Integer.parseInt(intString);
+			String[] contigString1 = SATag.split(",|;");
+			if (contigString1.length >= 7){
+			String contigString = SATag.split(",|;")[6];
+			return contigString.equals(str);
+			}
 		}
-		return Integer.MIN_VALUE;
+		return false;
 	}
+	/**
+	 * Get the position on the chromosome of the first alignment on the SA tag. 
+	 * @param s
+	 * @return a signed decimal integer with the chromosomal position
+	 */
+	private static int getPosSATag(SAMRecord s) {
+			String SATag = (String) s.getAttribute("SA");
+			String intString = SATag.split(",|;")[1];
+			return Integer.parseInt(intString);
+	}
+	/**
+	 * Get the position on the chromosome of the second alignment on the SA tag. 
+	 * @param s
+	 * @return a signed decimal integer with the chromosomal position
+	 */
+	private static int getPosSATag2(SAMRecord s) {
+			String SATag = (String) s.getAttribute("SA");
+			String intString = SATag.split(",|;")[7];
+			return Integer.parseInt(intString);
+	}
+	private static boolean getForwardSATag(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String signString = SATag.split(",|;")[2];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
+	private static boolean getForwardSecondSATag(SAMRecord sr) {
+		String SATag = (String) sr.getAttribute("SA");
+		String signString = SATag.split(",|;")[8];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
+	private static int getSALength(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String[] SAList = SATag.split(",|;");
+		int SALength = SAList.length;
+		return SALength;
+	}
+	public void splitTDNAReads() {
+		ArrayList<SAMRecord> tdnareads = new ArrayList<SAMRecord>();
+		ArrayList<String> badreads = new ArrayList<String>();
+		ArrayList<SAMRecord> genomicReadsAll = new ArrayList<SAMRecord>();
+		
+		splitReads.append(sp.getSample()+"\r\n"+this.getContigMate()+":"+this.getRealPosition()+" forward: "+this.isForward()+" primer "+sp.getPrimer());
+		splitReads.append("\t"+this.getNrAnchors(false));
+		splitReads.append("\r\n\t");
+
+		for(SAMRecord sr: sams) {
+			if(sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag())  {
+				tdnareads.add(sr);
+			}
+		}
+		this.TDNAcons = new Consensus();
+		this.TDNAfullcons = new Consensus();
+		this.TDNAgencons = new Consensus();
+		splitReads.append("\r\n\nTDNA reads - only the T-DNA part\r\n");
+		for(SAMRecord sr: tdnareads) {
+			String readPart = Translocation.getTDNAPart(sr, sp);
+			if (readPart != null) {
+				TDNAcons.add(readPart);
+				String cigar = Translocation.getString(sr.getCigarString(),24);
+				splitReads.append(cigar+readPart+" "+sr.getReadName()).append("\r\n");
+				if(sr.getReadName().equals(testName)) { 
+					System.out.println("The T-DNA part of read "+testName+" with cigar "+cigar+" has been added");
+					}
+			}
+			if (readPart == null) {
+				badreads.add(sr.getReadName());
+				if(sr.getReadName().equals(testName)) { 
+					System.err.println("The read "+testName+" will be removed because the T-DNA part is null");
+					}
+			}
+		}
+		splitReads.append(Translocation.getString("consensus TDNA parts", 24)).append(TDNAcons.getConsensusString()).append("\r\n");
+		splitReads.append(Translocation.getString("most frequent TDNA part", 24)).append(TDNAcons.getMostRepeatedString()).append(" no. reads matching con: "+TDNAcons.getMostRepeatedStringNr()).append(" fraction reads matching con: " +TDNAcons.getMostRepeatedStringFraction());
+
+		splitReads.append("\r\n\nTDNA reads - full reads\r\n");
+		for(SAMRecord sr: tdnareads) {
+			if (!badreads.contains(sr.getReadName())) {
+			//limit to 150bp, because different platforms were used.
+			int readlength = 150;
+				if (sr.getReadString().length() <150) {
+					readlength = sr.getReadString().length();
+				}
+				String readSequence = sr.getReadString().substring(0, readlength);
+				if (readSequence != null) {
+					TDNAfullcons.add(readSequence);
+					String cigar = Translocation.getString(sr.getCigarString(),24);
+					splitReads.append(cigar+readSequence+" "+sr.getReadName()).append("\r\n");
+					if(sr.getReadName().equals(testName)) { 
+						System.out.println("The trimmed full read "+testName+" with cigar "+cigar+" has been added");
+						}
+				}
+				if (readSequence == null) {
+					badreads.add(sr.getReadName());
+					if(sr.getReadName().equals(testName)) { 
+						System.err.println("The read "+testName+" will be removed because the full T-DNA read is null");
+					}
+				}
+			
+			}
+		}
+		splitReads.append(Translocation.getString("consensus junction", 24)).append(TDNAfullcons.getConsensusString()).append("\r\n");
+		splitReads.append(Translocation.getString("most frequent junction", 24)).append(TDNAfullcons.getMostRepeatedString()).append(" no. reads matching con: "+TDNAfullcons.getMostRepeatedStringNr()).append(" fraction reads matching con: " +TDNAfullcons.getMostRepeatedStringFraction());
+		
+		splitReads.append("\r\n\nTDNA reads - only the genomic part\r\n");
+		for(SAMRecord sr: tdnareads) {
+			if (!badreads.contains(sr.getReadName())) {
+				String readPart = Translocation.getGenomicPart(sr, sp);
+				if ((readPart != null) && (readPart.length()>=15)) {
+					String minimumPart = readPart.substring(0, 15);
+					TDNAgencons.add(minimumPart);
+					String cigar = Translocation.getString(sr.getCigarString(),24);
+					splitReads.append(cigar+minimumPart+" "+sr.getReadName()).append("\r\n");
+					if(sr.getReadName().equals(testName)) { 
+						System.out.println("The trimmed genomic part of read "+testName+" with cigar "+cigar+" has been added");
+						}
+				}
+				else {
+					badreads.add(sr.getReadName());
+					if(sr.getReadName().equals(testName)) { 
+						System.err.println("The read "+testName+" will be removed because the genomic part is null or shorter than 15 bp");
+						}
+				}
+			}
+		}
+		splitReads.append(Translocation.getString("consensus genomic parts", 24)).append(TDNAgencons.getConsensusString()).append("\r\n");
+		splitReads.append(Translocation.getString("minimum consensus genomic parts", 24)).append(TDNAgencons.getConsensusStringMinimum()).append("\r\n");
+		splitReads.append(Translocation.getString("most frequent genomic", 24)).append(TDNAgencons.getMostRepeatedString()).append(" no. reads matching con: "+TDNAgencons.getMostRepeatedStringNr()).append(" fraction reads matching con: " +TDNAgencons.getMostRepeatedStringFraction());
+		splitReads.append("\r\nend of TDNA\r\n");
+		
+		//finally remove the bad reads altogether
+		for (String br: badreads) {
+			for(int i=sams.size()-1;i>=0;i--) {
+				if(sams.get(i).getReadName().contentEquals(br)) {
+					sams.remove(i);
+					if(br.equals(testName)) { 
+						System.err.println("The read "+testName+" has been removed");
+						}
+				}
+			}
+			names.remove(br);
+		}
+
+		
+		splitReads.append("GENOMIC reads\r\n");
+		for(SAMRecord sr: sams) {
+			if (sr.getFirstOfPairFlag()!=sp.isFirstOfPairFlag()){
+				genomicReadsAll.add(sr);
+				String cigar = Translocation.getString(sr.getCigarString(),24);
+				splitReads.append(cigar+sr.getReadString()+" "+sr.getReadName()+"\r\n");
+				if(sr.getReadName().equals(testName)) { 
+					System.out.println("The anchor with name "+testName+" has been added");
+					}
+			}
+		}
+		splitReads.append("end of GENOMIC reads\r\n========\r\n");
+	}
+		
+	
+	private static int getPosSATagEnd(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String intString = SATag.split(",|;")[1];
+		int pos = Integer.parseInt(intString);
+		String cigarString = SATag.split(",|;")[3];
+		int indexFirstM = cigarString.indexOf("M");
+		int indexFirstS = cigarString.indexOf("S");
+		//int indexFirstH = cigarString.indexOf("H");
+		if (indexFirstS < indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		if (indexFirstM < indexFirstS) {
+			int posSM = Integer.parseInt(cigarString.substring(0, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		int position =-1;
+		return position;
+	}
+	private static int getPosSATagEnd2(SAMRecord sam) {
+		String SATag = (String) sam.getAttribute("SA");
+		String intString = SATag.split(",|;")[7];
+		int pos = Integer.parseInt(intString);
+		String cigarString = SATag.split(",|;")[9];
+		int indexFirstM = cigarString.indexOf("M");
+		int indexFirstS = cigarString.indexOf("S");
+		//int indexFirstH = cigarString.indexOf("H");
+		if (indexFirstS < indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		if (indexFirstM < indexFirstS) {
+			int posSM = Integer.parseInt(cigarString.substring(0, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		int position =-1;
+		return position;
+	}
+	/**
+	 * If "names" contains the mapping for the readName key.
+	 * @param readName
+	 * @return true or false
+	 */
 	public boolean containsRecord(String readName) {
 		if(names.containsKey(readName)) {
 			return true;
@@ -1479,27 +1399,23 @@ public class Translocation {
 		return false;
 		
 	}
+	/**
+	 * Return true if either the NM (edit distance) of "src" hasn't been set, or if the number of mismatches is lower than or equal to the limit (=1 mismatch).
+	 * Return false if the number of mismatches exceeds the limit. 
+	 * @param srec
+	 * @return true or false
+	 */
 	public static boolean getNMis0(SAMRecord srec) {
 		if(srec.hasAttribute("NM")) {
 			int tag = (Integer) srec.getAttribute("NM");
-			/*
-			if(tag>0) {
-				String md = (String) srec.getAttribute("MD");
-				String[] parts = md.split("[\\^A-Z]");
-				//System.out.println(parts[0]);
-				int size = Integer.parseInt(parts[0]);
-				//TODO change to non hardcoded
-				if(size>=150) {
-					return true;
-				}
-			}
-			*/
-			//System.out.println("Mismatches: "+tag);
 			return tag <= SamplePrimer.getMaxMismatches();
-			//return tag == 0;
 		}
 		return true;
 	}
+	/**
+	 * Add warning message "string" to object "warning"
+	 * @param string
+	 */
 	private void addWarning(String string) {
 		if(warning == null) {
 			warning = string;
@@ -1523,16 +1439,16 @@ public class Translocation {
 		}
 	}
 	private boolean hasErrors() {
-		if(this.getNrAnchors(false) == 0) {
+		if(this.getNrAnchors(true) == 0) {
 			return true;
 		}
-		if(this.getGenomicSequence().equals(NOGENOMIC)) {
+		if(this.getGenomicSequenceMostRepeated().equals(NOGENOMIC)) {
 			return true;
 		}
-		if(this.getTranslocationSequence().equals(NOTRANSLOCATION)) {
+		if(this.getTranslocationSequenceMostRepeated().equals(NOTRANSLOCATION)) {
 			return true;
 		}
-		if(!this.getTranslocationSequence().contains(this.getTDNASequence())) {
+		if(!this.getTranslocationSequenceMostRepeated().contains(this.getTDNASequenceMostRepeated())) {
 			return true;
 		}
 		if(this.error!= null && error.length()>0) {
@@ -1540,40 +1456,101 @@ public class Translocation {
 		}
 		return false;
 	}
+	/**
+	 * 
+	 * @param rsf
+	 */
 	public void addRefSequence(ReferenceSequenceFile rsf) {
-		if(this.isOK()) {
-			int start = -1;
-			int end = -1;
-			if(this.isForward()) {
+		int start = -1;
+		int end = -1;
+		if (this.getGenomicSequenceMostRepeated()!=NOGENOMIC) {
+			if(this.isForward()==true) {
 				start = this.getRealPosition()-refSize;
 				//safety
-				if(start<0) {
-					start = 0;
+				if(start<1) {
+					start = 1;
 				}
 				end = this.getRealPosition();
-				this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
-				//take the reverse complement
-				ref = Utils.reverseComplement(ref);
+				if (end <= rsf.getSequence(this.getContigMate()).length()) {
+					this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
+					//take the reverse complement
+					String compRef = Utils.reverseComplement(this.ref);
+					if(compRef.startsWith(this.getGenomicSequenceMostRepeated().toUpperCase())==false) {
+						int getMismatches = getMismatches(compRef,this.getGenomicSequenceMostRepeated().toUpperCase());
+						if(getMismatches <= SamplePrimer.getMaxMismatches()) {
+							addWarning("Ref sequence deviates from sequence in reads: "+getMismatches+" mismatches");
+						}
+						else {
+							this.addError("Ref sequence deviates from sequence in reads: "+getMismatches+" mismatches");
+						}
+					}
+				}
+				if (end > rsf.getSequence(this.getContigMate()).length()) {
+					this.addError("Probably trying to get a coordinate from the wrong chromosome");
+				}
 			}
 			else {
 				start = this.getRealPosition();
 				end = this.getRealPosition()+refSize;
-				if(end>rsf.getSequence(this.getContigMate()).length()) {
-					end = rsf.getSequence(this.getContigMate()).length();
+				if (start <= rsf.getSequence(this.getContigMate()).length()) {
+					if(end>rsf.getSequence(this.getContigMate()).length()) {
+						end = rsf.getSequence(this.getContigMate()).length();
+					}
+					this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
+					String compRef = this.ref;
+					if(compRef.startsWith(this.getGenomicSequenceMostRepeated())==false) {
+						int getMismatches = getMismatches(compRef,this.getGenomicSequenceMostRepeated());
+						if(getMismatches <= SamplePrimer.getMaxMismatches()) {
+							addWarning("Ref sequence from "+this.getContigMate() +" deviates from sequence in reads: "+getMismatches+" mismatches");
+						}
+						else {
+							this.addError("Ref sequence from "+this.getContigMate() +" deviates from sequence in reads: "+getMismatches+" mismatches. compRef= "+compRef+", genomic= " +this.getGenomicSequenceMostRepeated());
+						}
+					}
 				}
-				this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
-			}
-			if(!this.ref.startsWith(this.getGenomicSequence())) {
-				int getMismatches = getMismatches(ref,this.getGenomicSequence());
-				if(getMismatches <= SamplePrimer.getMaxMismatches()) {
-					addWarning("Ref sequence has "+getMismatches+" mismatches with genomic sequence");
-				}
-				else {
-					this.addError("Ref sequence deviates from sequence in reads "+getMismatches+" mismatches");
+				if (start > rsf.getSequence(this.getContigMate()).length()) {
+					this.addError("Trying to get a coordinate from the wrong chromosome");
 				}
 			}
 		}
+		else {
+			this.addError("Cannot get refseq because no genomic seq found");
+		}
 	}
+	
+	public static int getSACigarLength(SAMRecord s) {
+		String SATag = (String) s.getAttribute("SA");
+		String cigarString = SATag.split(",|;")[3];
+		int countS = countChar(cigarString, 'S');
+		int countM = countChar(cigarString, 'M');
+		//int countI = countChar(cigarString, 'I');
+		//int countD = countChar(cigarString, 'D');
+		int totalCount = countS+countM;
+		return totalCount;
+	}
+	public static int getSASecondCigarLength(SAMRecord s) {
+		String SATag = (String) s.getAttribute("SA");
+		String cigarString = SATag.split(",|;")[9];
+		int countS = countChar(cigarString, 'S');
+		int countM = countChar(cigarString, 'M');
+		//int countI = countChar(cigarString, 'I');
+		//int countD = countChar(cigarString, 'D');
+		int totalCount = countS+countM;
+		return totalCount;
+	}
+	
+	public static int countChar(String str, char c)
+	{
+	    int count = 0;
+
+	    for(int i=0; i < str.length(); i++)
+	    {    if(str.charAt(i) == c)
+	            count++;
+	    }
+
+	    return count;
+	}
+	
 	private int getMismatches(String ref, String g) {
 		int len = Math.min(ref.length(), g.length());
 		int mismatches = 0;
@@ -1584,6 +1561,7 @@ public class Translocation {
 		}
 		return mismatches;
 	}
+	
 	public void printDebug() {
 		String tl = this.toString();
 		for(SAMRecord sr: sams) {
@@ -1592,182 +1570,24 @@ public class Translocation {
 		}
 		System.out.println(tl);
 		System.out.println("TDNA SEQ:");
-		System.out.println(this.getTDNASequence(true));
+		System.out.println(this.getTDNASequenceMostRepeated());
 		System.out.println("GENOMIC SEQ:");
-		System.out.println(this.getGenomicSequence(true));
-		System.out.println("getMinimalJunction:");
-		System.out.println(getMinimalJunction(true));
+		System.out.println(this.getGenomicSequenceMostRepeated());
 		System.out.println(getRealPosition(true));
-		System.out.println(this.getTranslocationSequence(true));
+		System.out.println(this.getTranslocationSequenceMostRepeated());
 		
-	}
-	/**Debug method
-	 * 
-	 */
+	} 
+	
 	public String getReads() {
-		StringBuffer sb = new StringBuffer();
-		sb.append(sp.getSample()+"\r\n"+this.getContigMate()+":"+this.getRealPosition()+" forward: "+this.isForward()+" primer "+sp.getPrimer());
-		sb.append("\t"+this.getNrAnchors(false));
-		
-		sb.append("\r\n\t");
-		
-//		Assembler a = new Assembler();
-		ArrayList<SAMRecord> tdnareads = new ArrayList<SAMRecord>();
-		ArrayList<SAMRecord> genomicReads = new ArrayList<SAMRecord>();
-		ArrayList<SAMRecord> genomicReadsIncPrimer = new ArrayList<SAMRecord>();
-		ArrayList<SAMRecord> genomicReadsAll = new ArrayList<SAMRecord>();
-		for(SAMRecord sr: sams) {
-			if(sr.getContig().contentEquals(sp.getChr())) {
-				tdnareads.add(sr);
-			}
-			else if(!sr.getContig().contentEquals(sp.getChr()) && (sr.getReadString().startsWith(sp.getPrimer()) ||
-					sr.getCigar().getFirstCigarElement().getOperator() ==CigarOperator.H)) {
-				genomicReadsIncPrimer.add(sr);
-			}
-			else if(!sr.getContig().contentEquals(sp.getChr())) {
-				genomicReads.add(sr);
-			}
-			else {
-				System.err.println("What's this?");
-				System.err.println(sr.getReadString());
-			}
-			if((sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag())
-					) {
-					genomicReadsAll.add(sr)	;
-			}
-			//boolean startWithPrimer = sr.getReadString().startsWith(sp.getPrimer());
-			//String aligned = getAligned(sr);
-			//sb.append("\t"+startWithPrimer);
-			//sb.append("\t"+sr.getCigarString());
-			//sb.append("\t"+sr.getFirstOfPairFlag());
-			//sb.append(Translocation.getString(sr.getContig(),15));
-			//sb.append(sr.getReadString());
-			//sb.append("\t"+sr.getReadNegativeStrandFlag());
-			//sb.append("\t"+sr.getAlignmentStart()+"-"+sr.getAlignmentEnd());
-			//sb.append("\t"+sr.getReadName());
-			//sb.append("\r\n\t");
-			//a.addFragment(new Fragment(sr.getReadString()));
-		}
-		sb.append("\r\n\nTDNA reads\r\n");
-		//Assembler a = new Assembler();
-		this.TDNAcons = new Consensus();
-		this.genomeCons = new Consensus();
-		this.genomeConsInt = new ConsensusInt();
-		this.genomePrimerCons = new Consensus();
-		this.junctionAll = new Consensus();
-		for(SAMRecord sr: tdnareads) {
-			String cigar = Translocation.getString(sr.getCigarString(),24);
-			//String map = Translocation.getString(""+sr.getFirstOfPairFlag(),4);
-			//cigar = map+cigar;
-			String readPart = Translocation.getMatchedPart(sr, false);
-			TDNAcons.add(readPart);
-			sb.append(cigar+readPart+" "+sr.getReadName()).append("\r\n");
-		}
-		sb.append(Translocation.getString("consensusTDNA", 24)).append(TDNAcons.getConsensusString()).append("\r\n");
-		sb.append(Translocation.getString("most frequent TDNA", 24)).append(TDNAcons.getMostRepeatedString()).append(" "+TDNAcons.getMostRepeatedStringNr()).append(" fraction:" +TDNAcons.getMostRepeatedStringFraction());
-		sb.append("\r\nend of TDNA\r\n");
-		sb.append("Genomic reads that include the primer\r\n");
-		for(SAMRecord sr: genomicReadsIncPrimer) {
-			String cigar = Translocation.getString(sr.getCigarString(),24);
-			//String map = Translocation.getString(""+sr.getFirstOfPairFlag(),4);
-			//cigar = map+cigar;
-			sb.append(cigar+sr.getReadString()+"\t"+sr.getFirstOfPairFlag()).append("\r\n");
-		}
-		int count = 0;
-		for(SAMRecord sr: genomicReadsIncPrimer) {
-			String cigar = Translocation.getString(sr.getCigarString(),20);
-			String map = Translocation.getString(""+sr.getAlignmentStart(),10);
-			cigar = map+cigar;
-			String readPart = Translocation.getMatchedPart(sr, true);
-			String readPartNoSpaces = Translocation.getMatchedPart(sr, false);
-			//check if first part is a Hard clip, because that will not provide any info here
-			if(sr.getCigar().getFirstCigarElement().getOperator()==CigarOperator.H) {
-				//System.out.println("Hard "+sr.getReadName());
-				for(SAMRecord tempSr: sams) {
-					if(tempSr.getContig().contentEquals(sp.getChr()) && tempSr.getReadName().contentEquals(sr.getReadName())) {
-						//add this one
-						genomePrimerCons.add(tempSr.getReadString());
-						genomeCons.add(readPartNoSpaces);
-						genomeConsInt.add(tempSr.getReadLength()-sr.getReadLength());
-					}
-				}
-				
-			}
-			else {
-				genomePrimerCons.add(sr.getReadString());
-				genomeCons.add(readPartNoSpaces);
-				//if(sr.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
-				CigarElement ce = sr.getCigar().getFirstCigarElement();
-				genomeConsInt.add(ce.getLength());
-			}
-			//}
-			//sb.append(cigar+readPart).append("\r\n");
-			count++;
-		}
-		sb.append(Translocation.getString("consGenomeIncPrimer", 24)).append(genomePrimerCons.getConsensusString()).append("\r\n");
-		sb.append(Translocation.getString("freqGenomeIncPrimer", 24)).append(genomePrimerCons.getMostRepeatedString()).append(" "+genomePrimerCons.getMostRepeatedStringNr()).append("\r\n");
-		sb.append(Translocation.getString("consensusGenome", 30)).append(genomeCons.getConsensusString()).append(" "+genomeCons.getMostRepeatedStringNr());
-		sb.append("\n").append(Translocation.getString("consensusGenomeINT", 30)).append(genomeConsInt.getMostRepeatedInt())
-		.append(" ").append(genomeConsInt.getMin()+":"+genomeConsInt.getMax());
-		sb.append("\r\nend of GENOMIC reads including primer\r\n");
-		sb.append("rest of GENOMIC reads\r\n");
-		for(SAMRecord sr: genomicReadsAll) {
-			if(sr.getContig().contentEquals(sp.getChr())) {
-				junctionAll.add(sr.getReadString());
-				sb.append(sr.getReadString()+"\r\n");
-			}
-			else {
-				junctionAll.add(Translocation.getSoftClippedPart(sr));
-				sb.append(sr.getReadString()+"\r\n");
-			}
-		}
-		//get the filler sequence
-		
-		
-		for(SAMRecord sr: genomicReads) {
-			String cigar = Translocation.getString(sr.getCigarString(),20);
-			String map = Translocation.getString(""+sr.getMappingQuality(),4);
-			cigar = map+cigar;
-			//sb.append(cigar+sr.getReadString()).append("\r\n");
-		}
-		sb.append("end of GENOMIC reads\r\n========\r\n");
-		
-		//sb.append(this.toString());
-		//System.out.println("BEFORE ASSEMBLY1");
-		//System.out.println(a.toString());
-		//System.out.println("BEFORE ASSEMBLY2");
-		/*
-		if(this.getRealPosition()==4010692) {
-			System.out.println("Found it "+sp.getSample());
-			System.out.println(genomeCons.getConsensusString());
-			System.out.println(genomeCons.getMostRepeatedString());
-			System.out.println(genomePrimerCons.getConsensusString());
-			System.out.println(genomePrimerCons.getMostRepeatedString());
-			
-			System.out.println("##");
-			for(SAMRecord sr: genomicReadsIncPrimer) {
-				System.out.println(sr.getReadString());
-			}
-			//System.out.println("====");
-			for(SAMRecord sr: sams) {
-				//System.out.println(sr.getReadName()+"\t"+sr.getContig()+"\t"+sr.getCigarString()+"\t"+sr.getReadString());
-			}
-			//System.exit(0);
-			//a.assembleAll();
-			//sb.append(a.toString());
-		}
-		*/
-		//a.assembleAll();
-		//if(a.getFragments().size()>1) {
-			//System.out.println("ASSEMBLY>1");
-		//}
-		//System.out.println(a.toString());
-		//System.out.println("AFTER ASSEMBLY");
-		//System.out.println(this.getTranslocationSequence(true));
-		
-		
-		return sb.toString();
+		return splitReads.toString();
 	}
+	/**
+	 * Creates a stringbuffer with cigarstrings. If the length of "s" is larger than "size", return the part of the string from the start position until "size".
+	 * If the length is smaller than "size", add spaces to the end until that length has been reached. Then return the string plus those spaces. 
+	 * @param cigarString
+	 * @param size
+	 * @return
+	 */
 	private static String getString(String cigarString, int size) {
 		StringBuffer s = new StringBuffer(cigarString);
 		if(s.length()>size) {
@@ -1803,6 +1623,7 @@ public class Translocation {
 		
 	}
 	public void removeSam(SAMRecord srec) {
+
 		for(int i=sams.size()-1;i>=0;i--) {
 			if(sams.get(i).getReadName().contentEquals(srec.getReadName())) {
 				sams.remove(i);
@@ -1810,4 +1631,38 @@ public class Translocation {
 		}
 		names.remove(srec.getReadName());
 	}
+
+	public String matchEnd(String string) {
+	    //Create a return string that is blank.
+	    String ret = "";
+	    //Create the maximum amount that we are going 
+	    //to go both backward and forward in the string
+	    int maxInt = (string.length() / 2) + 1;
+	    //We start at iteration 0 for the first check and go up to the maxInt.
+	    for (int i = 0; i < maxInt; i++)
+	    {
+	      //Create a temporary string will change that we will check for the value.
+	      String temp = string.substring(0, i);
+	      //If the temporary string is at the beginning and end, we set our return
+	      //String equal to it.
+	      if (string.endsWith(temp))
+	      {
+	        ret = temp;
+	      }
+	    }
+	    //What we end up with is the return string that has the most characters
+	    //At the the end.
+	    return ret;
+	  }
+ 
+	private static boolean cigarStringFollowsSMS(String cigarString) {
+		Pattern p = Pattern.compile("\\d*[S]\\d*[M]\\d*[S]");
+		Matcher m = p.matcher(cigarString);
+		boolean b = m.matches();
+		return b;
+	}
+
+
+
 }
+

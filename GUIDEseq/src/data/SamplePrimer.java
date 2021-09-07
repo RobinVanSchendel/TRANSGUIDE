@@ -2,8 +2,28 @@ package data;
 
 import java.io.File;
 
+/**
+ *@param sample (private String)
+ *@param primer (private String)
+ *@param chr (private String)
+ *@param ref (private File)
+ *@param LB (private boolean)
+ *@param DNAsample (private String)
+ *@param genotype (private String)
+ *@param ecotype (private String)
+ *@param P5 (private String)
+ *@param RBisForward (private boolean)
+ *@param RBpos (private int)
+ *@param LBisForward (private boolean)
+ *@param LBpos (private int)
+ *@param file (private File)
+ *@param run (private String)
+ *@param UMI (private boolean)
+ */
 public class SamplePrimer {
-	private String sample, primer, chr;
+	private String sample; 
+	private String primer; 
+	private String chr;
 	private File ref;
 	private boolean LB;
 	private String DNAsample;
@@ -55,17 +75,15 @@ public class SamplePrimer {
 		File ref = new File(parts[2]);
 		String chr = parts[3];
 		String P5 = parts[5];
-		String dna = parts[10];
-		String genotype = parts[11];
-		String ecotype = parts[12];
-		String run = null;
-		if(parts.length>=16) {
-			run = parts[15];
-		}
+		String dna = parts[6];
+		String genotype = parts[7];
+		String ecotype = parts[8];
+		String run = parts[9];
+		
 		boolean UMI = false;
-		if(parts.length>=17) {
-			UMI = Boolean.parseBoolean(parts[16]);
-		}
+		//if(parts.length>=17) {
+		//	UMI = Boolean.parseBoolean(parts[16]);
+		//}
 		
 		boolean LB = true;
 		if(parts[4].contentEquals("LB")) {
@@ -78,7 +96,7 @@ public class SamplePrimer {
 			System.err.println("LB or RB should be filled in: "+line);
 			System.exit(0);
 		}
-		return new SamplePrimer(sample, primer, ref, chr, LB,dna,genotype,ecotype, P5, run, UMI);
+		return new SamplePrimer(sample, primer, ref, chr, LB, dna, genotype, ecotype, P5, run, UMI);
 	}
 	public boolean sampleNameMatches(String str) {
 		String sampleBam = sample+".sorted.bam";
@@ -96,6 +114,9 @@ public class SamplePrimer {
 	public File getRef() {
 		return ref;
 	}
+	/**
+	 * @return the value of String "chr" of the current instance
+	 */
 	public String getChr() {
 		return this.chr;
 	}
@@ -109,6 +130,10 @@ public class SamplePrimer {
 		}
 		return sample+"\t"+LB+"\t"+this.getChr()+"\t"+getPrimer()+"\t"+DNAsample+"\t"+genotype+"\t"+ecotype;
 	}
+	/**
+	 * Returns true the P5 primer has been specified, or false if the P7 primer has been specified. Otherwise exit program.
+	 * @return true or false 
+	 */
 	public boolean isFirstOfPairFlag() {
 		if(P5.contentEquals("P5")) {
 			return true;
@@ -122,26 +147,40 @@ public class SamplePrimer {
 		}
 		return false;
 	}
+	/**
+	 * Sets RBpos from indexRB
+	 * @param pos
+	 * @param rBisForward
+	 */
 	public void setTDNARBPos(int pos, boolean rBisForward) {
 		this.RBisForward = rBisForward;
 		this.RBpos = pos;
 	}
-	/** hard-coded the RB position
-	 * 
+	/** 
+	 * @return RBpos
 	 */
 	public int getTDNARBPos() {
 		return RBpos;
 	}
+	/**
+	 * Sets LBpos from indexLB
+	 * @param pos
+	 * @param lBisForward
+	 */
 	public void setTDNALBPos(int pos, boolean lBisForward) {
 		this.LBisForward = lBisForward;
 		this.LBpos = pos;
 	}
-	/** hard-coded the LB position
-	 * 
+	/** 
+	 * @return LBpos
 	 */
 	public int getTDNALBPos() {
 		return LBpos;
 	}
+	/**
+	 * 
+	 * @return this.LBisForward
+	 */
 	public boolean getTDNALBisForward() {
 		return this.LBisForward;
 	}
@@ -175,6 +214,11 @@ public class SamplePrimer {
 	public String getDNAsample() {
 		return this.DNAsample;
 	}
+	
+	public String getEcotype() {
+		return this.ecotype;
+	}
+	
 	public String getSampleString() {
 		return this.getSample()+"\t"+this.genotype+"\t"+this.DNAsample;
 	}

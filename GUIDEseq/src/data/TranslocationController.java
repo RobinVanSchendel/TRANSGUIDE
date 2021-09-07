@@ -1,40 +1,76 @@
 package data;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 
-import htsjdk.samtools.*;
+import htsjdk.samtools.Cigar;
+import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.SAMRecordIterator;
+import htsjdk.samtools.SAMSequenceRecord;
+import htsjdk.samtools.SamReader;
+import htsjdk.samtools.SamReaderFactory;
+import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
 
-import static java.util.Comparator.*;
-
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-
 public class TranslocationController {
 	private HashMap<String, ArrayList<Translocation>> trans = new HashMap<String, ArrayList<Translocation>>();
-	public static final int MAXDIST = 500;
+	public static final int MAXDIST = 5;
+	public static final int MAXANCHORDIST = 2000;
 	private int primerStart, primerEnd;
 	public static final String LB = "GTTTACACCACAATATATCCTGCCA";
-	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA";
+	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA"; //this is the default one
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
+	public static final String testName = "M02948:174:000000000-JBDYN:1:2118:12143:22583";
+	public static final String testPosition = "3:5639620";
 	
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
 	}
-
+	
+	private Translocation getNearestTranslocation(SAMRecord s) {
+		if (Translocation.getPosition2(s, sp)!=-1) {  //filter for faulty positions
+			int pos = Translocation.getPosition2(s, sp);
+			Translocation nearest = null;
+			int minDis = Integer.MAX_VALUE;
+			if(trans.get(s.getMateReferenceName()) == null) {
+				return null;
+			}
+			if (sp.getChr().equals(s.getMateReferenceName())==true) {
+				if(s.getReadName().contentEquals(testName)) { 
+					System.err.println("Mate is primarily aligned to the plasmid, nearest translocation will be null");}
+				return null;
+			}
+			for(Translocation tl: trans.get(s.getMateReferenceName())) {
+				if(tl.isForward() != s.getMateNegativeStrandFlag()) {
+					int tempPos = tl.getPosition();
+					int distance = Math.abs(pos-tempPos);
+					if(distance<minDis) {
+						minDis = distance;
+						nearest = tl; 
+					}
+					else if(minDis>=0 && minDis<MAXDIST && nearest!=null) {
+						return nearest;
+					}
+				}
+			}
+			if (minDis<MAXDIST) {
+				return nearest;
+			}
+			return null;
+		}
+		else {
+			return null;
+		}
+	}
 	public Translocation addTranslocation(SAMRecord s, int maxReads) {
 		Translocation nearest = getNearestTranslocation(s);
-//		int pos = Translocation.getPosition(s, options);
 		if(nearest !=null) {
 			if(nearest.getSams().size()<maxReads) {
 				nearest.addSam(s);
@@ -43,14 +79,18 @@ public class TranslocationController {
 		}
 		else {
 			Translocation tl = new Translocation(s, sp);
+			if(s.getReadName().contentEquals(testName)) { 
+			System.out.println("addTranslocation - checkpoint1");}
 			//sometimes the sam is not added due to filtering of secondary alignments
-			if(tl.getNrSupportingReads()>0) {
+			if((tl.getNrSupportingReads()>0) && (sp.getChr().equals(s.getMateReferenceName())==false)) {
 				ArrayList<Translocation> al = trans.get(s.getMateReferenceName());
 				if(al==null) {
 					al = new ArrayList<Translocation>();
 					trans.put(s.getMateReferenceName(), al);
 				}
 				al.add(tl);
+				if(s.getReadName().contentEquals(testName)) { 
+					System.out.println("addTranslocation - checkpoint2");}
 				return tl;
 			}
 			else {
@@ -59,71 +99,7 @@ public class TranslocationController {
 		}
 		return null;
 	}
-
-	private Translocation getNearestTranslocation(SAMRecord s) {
-		int pos = Translocation.getPosition(s, sp);
-		Translocation nearest = null;
-		int minDis = Integer.MAX_VALUE;
-		if(trans.get(s.getMateReferenceName()) == null) {
-			//System.out.println("don't yet have "+s.getMateReferenceName());
-			return null;
-		}
-		for(Translocation tl: trans.get(s.getMateReferenceName())) {
-			//System.out.println(tl.getContigMate()+":"+s.getMateReferenceName());
-			//getMateNegativeStrandFlag == Forward
-			//System.out.println("same Contig");
-			//System.out.println(tl.isForward()+":"+!s.getMateNegativeStrandFlag());
-			//if(s.getMateReferenceName().contentEquals("5")) {
-				//System.out.println(s.getMateReferenceName()+" contains "+trans.get(s.getMateReferenceName()).size()+" search "+pos);
-				//System.out.println(tl.isForward() != s.getMateNegativeStrandFlag());
-				/*
-				for(Translocation tl2: trans.get(s.getMateReferenceName())){
-					System.out.println("\t"+tl2.getPosition());
-					System.out.println(tl.isForward() != s.getMateNegativeStrandFlag());
-					int tempPos = tl.getPosition();
-					int distance = Math.abs(pos-tempPos);
-					System.out.println("\tdistance:\t"+distance);
-				}
-				*/
-			//}
-			if(tl.isForward() != s.getMateNegativeStrandFlag()) {
-				//System.out.println("same orientation");
-				int tempPos = tl.getPosition();
-				int distance = Math.abs(pos-tempPos);
-				//System.out.println("distance: "+distance);
-				//if(distance>20000000) {
-				//	System.out.println(tl.getContigMate()+"\t"+tl.getPosition());
-				//	System.out.println(pos);
-				//}
-				if(distance<minDis) {
-					minDis = distance;
-					nearest = tl; 
-				}
-				//small optimization
-				if(minDis == 0) {
-					//System.out.println("shortcut! "+minDis);
-					//System.out.println("found it "+s.getMateReferenceName()+" "+ pos);
-					return nearest;
-				}
-				//is that correct?
-				else if(minDis>0 && minDis<MAXDIST && nearest!=null) {
-					//System.out.println("shortcut "+minDis);
-					//System.out.println("found it "+s.getMateReferenceName()+" "+ pos);
-					return nearest;
-				}
-			}
-		}
-		//System.out.println(s.getMateReferenceName() + " "+pos);
-		//System.out.println(minDis);
-		//only do this when we have a nearest
-		if (minDis<MAXDIST) {
-			//System.out.println("found it "+s.getMateReferenceName()+" "+ pos);
-			return nearest;
-		}
-		//System.out.println("Creating new "+s.getMateReferenceName()+" "+ pos);
-		//System.out.println(minDis);
-		return null;
-	}
+    
 
 	public void printContents(BufferedWriter bw, long minSupport) {
 		//sorting doesn't work at the moment
@@ -134,7 +110,7 @@ public class TranslocationController {
 				int printNr = 0;
 				for(Translocation tl: trans.get(key)) {
 					if(tl.getSams().size()>0) {
-						if(tl.getNrAnchors(false)>=minSupport) {
+						if(tl.getNrAnchors(true)>=minSupport) {
 							//String output = null;
 							String output = tl.toString(debug);
 							bw.write(sp.getSampleString()+"\t"+output+"\n");
@@ -151,9 +127,13 @@ public class TranslocationController {
 			e.printStackTrace();
 		} 
 	}
-
+	/**
+	 * This adds the anchors. They can be at most 2000 bp away from the T-DNA primers. Usually they should not come close to that amount.
+	 * Maybe have to change the way to get the position in some cases. 
+	 * @param sr
+	 */
 	public void addMates(SamReader sr) {
-		int around = 500;
+		int around = MAXANCHORDIST;
 		int duplicates = 0;
 		int count = 0;
 		for(String key: trans.keySet()){
@@ -165,7 +145,6 @@ public class TranslocationController {
 				//System.out.println(tl.getContigMate()+":"+tl.getPosition());
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
-					//System.out.println(srec.getReadName());
 					if(srec.getContig()!=null) {
 						//if first read is in, why remove the second if it is duplicate?
 						/*
@@ -180,46 +159,28 @@ public class TranslocationController {
 							//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
 							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
 							boolean added = tl.addSam(srec);
+						//below duplicates are not included, only anchors (first of pair), and the read has to align primarily to the chromosome, which will remove some anchors from very small fragments, or fillers with very large perfect alignments.
+						if((isDuplicate(srec)==false) && (tl.containsRecord(srec.getReadName())==true) && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) { 
+								if(srec.getReadName().contentEquals(testName)) {
+									System.err.println("added mate =  "+added +", name: " +srec.getReadName()+ ", getcontigmate: " +tl.getContigMate());
+								}
 						}
 						//sometimes hard clipped reads went through our duplicate filter
 						if(isDuplicate(srec)) {
 							tl.removeSam(srec);
 						}
-						//not sure if I want these
-						/*
-						else if(!isDuplicate(srec)) {
-							if(tl.isForward()) {
-								if(srec.getFirstOfPairFlag()!= sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-								else if(srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag() && srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-							}
-							else {
-								if(srec.getFirstOfPairFlag()!= sp.isFirstOfPairFlag() && srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-								else if(srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag()) {
-									tl.addSam(srec);
-								}
-								
-							}
-						}
-						*/
 						if(isDuplicate(srec)) {
 							duplicates++;
 						}
 					}
-					//System.out.println(counter2);
 				}
 				sri.close();
 				if(count%1000==0) {
 					System.out.println("Already processed "+count+" mates "+trans.get(key).size() + " from chr "+key);
 				}
 				//System.out.println(tl.getReads());
+				}
 			}
-			
 			
 		}
 		System.out.println("Found "+duplicates+" duplicate mates (should be >0)");
@@ -234,13 +195,17 @@ public class TranslocationController {
 		return srec.getDuplicateReadFlag();
 		
 	}
-
+	/**
+	 * 
+	 * @param rsf
+	 */
 	public void addRefGenomePart(ReferenceSequenceFile rsf) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
-				if(tl.isOK()) {
+				if (tl.getSams().size()>0) {
 					tl.addRefSequence(rsf);
 				}
+					
 			}
 		}
 	}
@@ -297,161 +262,126 @@ public class TranslocationController {
     	//System.out.println(end);
     	//System.out.println(sr.hasIndex());
 	    SAMRecordIterator r = sr.query(sp.getChr(), start, end, false);
+    	System.out.println("Primerstart:" +primerStart +", Primerend:" +primerEnd +", positivestrand:"+positiveStrand +", primerseq:"+sp.getPrimer());
 	    
 	    int count = 0;
 	    int NM0Count = 0;
 	    int duplicateFlag = 0;
 	    int Ncount = 0;
-	    int NoCount = 0;
 	 
-	    String debugReadName = "A00379:349:HM7WFDSXY:4:2223:3685:2206";
         while(r.hasNext()) {
         	count++;
         	SAMRecord srec = r.next();
         	if(debug) {
-        		//System.err.println("Still here");
-        		if(srec.getReadName().contentEquals(debugReadName)) {
-        			System.out.println(srec.getReadName());
-        			System.out.println(srec.getCigarString());
-        			System.out.println(srec.getContig());
-        			System.out.println(srec.toString());
-        			System.out.println(srec.getReadString());
-        			System.out.println("MATE");
+        		if(srec.getReadName().contentEquals(testName)) {
+        			System.out.println("BEFORE RCing");
+        			System.out.println("read name: " +srec.getReadName());
+        			System.out.println("CIGAR: " +srec.getCigarString());
+        			System.out.println("contig: " +srec.getContig());
+        			System.out.println("add info: " +srec.toString());
+        			System.out.println("sequence: " +srec.getReadString());
+        			System.out.println("alignment start: " +srec.getAlignmentStart());
+        			System.out.println("alignment end: " +srec.getAlignmentEnd());
+        			System.out.println("Read negative strand flag: " +srec.getReadNegativeStrandFlag());
+
+        			if (srec.getAttribute("SA") != null) {
+        				System.out.println("pos SATAg: " +getPosSATag(srec));
+        				System.out.println("sign SATag: " +getForwardSATag(srec));
+    					System.out.println("pos SATag end: " +getPosSATagEnd(srec));
+        			}
         			SAMRecord temp = sr2.queryMate(srec);
-        			System.out.println(temp.getReadName());
-        			System.out.println(temp.getCigarString());
-        			System.out.println(temp.getContig());
-        			System.out.println(temp.toString());
-        			System.out.println(temp.getReadString());
-        			System.out.println("EO MATE");
+        			if (temp!= null) {
+        				System.out.println("mate name: " +temp.getReadName());
+        				System.out.println("CIGAR: " +temp.getCigarString());
+        				System.out.println("contig: " +temp.getContig());
+        				System.out.println("add info: " +temp.toString());
+        				System.out.println("sequence: " +temp.getReadString());
+        				System.out.println("alignment start: " +temp.getAlignmentStart());
+        				System.out.println("alignment end: " +temp.getAlignmentEnd());
+        				System.out.println("Read negative strand flag: " +temp.getReadNegativeStrandFlag());
+        				if (temp.getAttribute("SA") != null) {
+        					System.out.println("pos SATAg: " +getPosSATag(temp));
+        					System.out.println("sign SATag: " +getForwardSATag(temp));
+        					System.out.println("pos SATag end: " +getPosSATagEnd(temp));
+        				}
+        			}
+        			if (temp == null) {
+        				System.out.println("mate not found");
+        			}
         		}
         	}
-        	//only take 0 mismatches reads
-        	//20200920 only take reads with max cigar length of 2
-        	if(Translocation.getNMis0(srec) ) {//&& srec.getCigarLength()<=2) {
-        		if(debug) {
-            		//System.err.println("Still here");
-            		if(srec.getReadName().contentEquals(debugReadName)) {
-                		System.err.println("Still here");
-            		}
-        		}
-        		NM0Count++;
-        		//chr has to be filled and unequal
-        		//take the reverse complement if we are looking at reads going reverse
-        		if(!positiveStrand) {
-        			if(debug) {
-                		//System.err.println("Still here !positiveStrand");
-                		//System.err.println(srec.getReadString());
-                	}
-        			String cigar = srec.getCigarString();
-        			boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
-        			//System.out.println("BEFORE RC "+srec.getReadNegativeStrandFlag());
-        			srec.reverseComplement();
-        			if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
-        				srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
+        	// don't take secondary alignment reads
+        	// don't take reads with no secondary alignment, all T-DNA reads are expected to have at least 2 alignments
+        	// don't take any reads that are duplicates
+        	// only take the T-DNA reads.
+        	if (srec.getAttribute("SA") != null){
+        		String SATag = (String) srec.getAttribute("SA");
+        		String[] SAList = SATag.split(",|;");
+        		int SALength = SAList.length;
+        		if((srec.isSecondaryAlignment()==false) && (isDuplicate(srec)==false) && (srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag())){
+        				if(debug) {
+            			if(srec.getReadName().contentEquals(testName)) {
+                			System.err.println("launch analysis - checkpoint 1");
+            			}
         			}
-        			//System.out.println("AFTER RC "+srec.getReadNegativeStrandFlag());
-        			//System.exit(0);
-        			//bug so reverse it myself
-        			Cigar tempCigar = srec.getCigar();
-        			if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
-        				Cigar rev = new Cigar();
-        				//reverse the cigar
-        				for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
-        					rev.add(tempCigar.getCigarElement(i));
-        				}
-        				srec.setCigar(rev);
-        			}
-        			//System.out.println("Made RC "+srec.getCigarString());
-        		}
-	        	if(srec.getContig() != null && !srec.getContig().equals(srec.getMateReferenceName())) {
-	        		if(debug) {
-	        			if(srec.getReadName().contentEquals(debugReadName)) {
-	                		System.err.println("Still here2 ");
-	            		}
-                	}
-	        		//read should start with the primer
-		       		//if(srec.getReadString().startsWith(sp.getPrimerPart(20))) {
-	        		//System.out.println(srec.getAlignmentStart() + " " + srec.getAlignmentEnd());
-	        		//System.out.println(srec.getReadString());
-	       			if((positiveStrand && srec.getAlignmentStart()==primerStart) ||
-	       					(!positiveStrand && srec.getAlignmentEnd()==primerEnd)){
-		       			if(debug) {
-		       				if(srec.getReadName().contentEquals(debugReadName)) {
-		                		System.err.println("Still here3");
-		                		System.err.println("is duplicate "+srec.getDuplicateReadFlag());
-		                		System.err.println("is sa "+srec.isSecondaryAlignment());
-		                		System.err.println("is sa/su "+srec.isSecondaryOrSupplementary());
-		            		}
-	                	}
-		       			//System.out.println("starts correct "+srec.getReadNegativeStrandFlag() );
-		       			//System.out.println(positiveStrand);
-		       			//System.out.println(srec.getDuplicateReadFlag());
-		       			//System.out.println(srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag());
-		       			//no duplicates
-		       			
-		       			if(!isDuplicate(srec) && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag()) {// && srec.getReadNegativeStrandFlag() == positiveStrand) {
-		       				//System.out.println("adding "+srec.getReadName()+" "+ isDuplicate(srec));
-		       				if(debug) {
-			       				if(srec.getReadName().contentEquals(debugReadName)) {
-			                		System.err.println("Still here4");
-			                		System.err.println(srec.isSecondaryAlignment());
-			       				}
-		       					
-		       				}
-		       				if(srec.getReadString().contains("N")) {
-		       					Ncount++;
-		       				}
-		       				else {
-		       					NoCount++;
-		       				}
-	       					addTranslocation(srec, maxReadsPerTrans);
-		       			}
-		       			if(isDuplicate(srec)) {
-		       				duplicateFlag++;
-		       			}
-		       		}
-		       		
-	        	}
-	        	/*
-	        	else if (srec.getContig() != null && srec.getContig().equals(srec.getMateReferenceName())) {
-	        		//System.out.println(positiveStrand);
-	        		//System.out.println(srec.getAlignmentStart());
-	        		if(srec.getReadString().startsWith(options.getPrimerPart(20))) {
-	        			
-	        			int dist = Math.abs(srec.getMateAlignmentStart()-primerStart);
-		       			if(dist>500) {
-	        			
-			        		if(!srec.getDuplicateReadFlag() && srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag() && !srec.getReadNegativeStrandFlag() == positiveStrand) {
-			       				//System.out.println("adding");
-			       				if(debug) {
-			       					
-			       				}
-		       					Translocation tl = addTranslocation(srec);
-		       					
-		       					
-		       					
-		       					SAMRecord mate = sr2.queryMate(srec);
+        			NM0Count++;
+        			if(srec.getReadNegativeStrandFlag()==true) {
+        				if(debug) {
+                		}
+        				srec.reverseComplement();
 
-		       					//System.out.println(srec.toString());
-		       					//System.out.println(srec.getReadString());
-		       					if(mate.getCigarString().contentEquals("299M")) {
-		       						System.out.println("####START");
-		       						//System.out.println(srec.getMateAlignmentStart());
-			       					//System.out.println(tl);
-			       					System.out.println(mate.getReadString());
-			       					System.out.println(mate.getCigarString());
-			       					System.out.println(mate.getContig()+":"+mate.getAlignmentStart()+"-"+mate.getAlignmentEnd());
-			       					System.out.println("####END");
-		       					}
-			       			}
-		       			}
+        				if(srec.getReadName().contentEquals(testName)) {
+        					System.out.println("AFTER RCing");
+        					System.out.println("read name: " +srec.getReadName());
+            				System.out.println("CIGAR: " +srec.getCigarString());
+            				System.out.println("CIGAR length: " +srec.getCigarLength());
+            				System.out.println("contig: " +srec.getContig());
+            				System.out.println("contig SA tag 1: " +getContigSATag(srec));
+            				System.out.println("add info: " +srec.toString());
+            				System.out.println("sequence: " +srec.getReadString());
+            				System.out.println("alignment start: " +srec.getAlignmentStart());
+            				System.out.println("alignment end: " +srec.getAlignmentEnd());
+            				System.out.println("Read negative strand flag: " +srec.getReadNegativeStrandFlag());
+        					System.out.println("SATAg length: " +SALength);
+        					System.out.println("pos SATAg: " +getPosSATag(srec));
+        					System.out.println("sign SATag: " +getForwardSATag(srec));
+        					System.out.println("pos SATag end: " +getPosSATagEnd(srec));
+        					if (SALength > 6) {
+        						System.out.println("pos SATAg 2: " +getPosSecondSATag(srec));
+            					System.out.println("sign SATag 2: " +getForwardSecondSATag(srec));
+            					System.out.println("contig SA tag 2: " +getContigSecondSATag(srec));
+        					}
+        				}
+        			}
+	        		if(debug) {
+	        			if(srec.getReadName().contentEquals(testName)) {
+	                		System.err.println("launch analysis - checkpoint 2");
+	            		}
 	        		}
-	        	}
-	        	*/
+	        		if (
+	        			((SALength == 6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true)))) ||
+	        			((SALength >6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true) && (sp.getChr().equals(getContigSecondSATag(srec))==true))))
+	        			)
+	        		{
+	        			if (srec.getReadString().startsWith(sp.getPrimer())) {
+	        				if(debug) {
+	    	        			if(srec.getReadName().contentEquals(testName)) {
+	    	        				System.err.println("launch analysis - checkpoint 3");
+	    	        			}
+	    	        		}
+	    	        		if(srec.getReadString().contains("N")) {
+	    	        			Ncount++;
+	    	        		}
+	    	        		addTranslocation(srec, maxReadsPerTrans);	
+	        			}
+	        		}		       	
+        		}
+        		if(isDuplicate(srec)) {
+       				duplicateFlag++;
+       			}
         	}
         	if(count%1000000==0) {
-        		System.out.println("Already processed "+count+" reads, NM0 reads "+NM0Count+" Ncount "+Ncount+" Nocount: "+NoCount);
+        		System.out.println("Already processed "+count+" reads, NM0 reads: "+NM0Count+", Ncount: "+Ncount);
         		//break;
         	}
         	if(getTotalTranslocations()==maxTrans) {
@@ -468,10 +398,12 @@ public class TranslocationController {
         System.out.println("Found "+count+" reads");
         System.out.println("Found "+NM0Count+" NM0Count");
         System.out.println("Found "+duplicateFlag+" duplicateFlag (should be >0)");
-        r.close();
+        r.close();        
         System.out.println("Adding mates");
         addMates(sr);
         System.out.println("Added mates");
+        System.out.println("Splitting T-DNA reads and finding minimal junction");
+        addTDNASplit();
         System.out.println("Adding refGenomeParts");
         addRefGenomePart(rsf);
         System.out.println("Added refGenomeParts");
@@ -516,6 +448,72 @@ public class TranslocationController {
 		}
 		return count;
 	}
+	/**
+	 * @param srec
+	 * @return the start of the first secondary alignment
+	 */
+	private static int getPosSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[1];
+		return Integer.parseInt(intString);
+	}
+
+	private static String getContigSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		return SATag.split(",|;")[0];
+	}
+	private static String getContigSecondSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		return SATag.split(",|;")[6];
+	}
+	private static int getPosSecondSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[7];
+		return Integer.parseInt(intString);
+	}
+	/**
+	 * @param srec
+	 * @return the end of the first secondary alignment.
+	 */
+	private static int getPosSATagEnd(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String intString = SATag.split(",|;")[1];
+		int pos = Integer.parseInt(intString);
+		String cigarString = SATag.split(",|;")[3];
+		int indexFirstM = cigarString.indexOf("M");
+		int indexFirstS = cigarString.indexOf("S");
+		if (indexFirstS < indexFirstM) {
+			int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
+			int position = pos+posSM-1;
+			return position;
+		}
+		int position =-1;
+		return position;
+	}
+	/**
+	 * @param srec
+	 * @return the forward or reverse flags from the first entry in the SA field.
+	 */
+	private static boolean getForwardSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String signString = SATag.split(",|;")[2];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
+	private static boolean getForwardSecondSATag(SAMRecord srec) {
+		String SATag = (String) srec.getAttribute("SA");
+		String signString = SATag.split(",|;")[8];
+		if (signString.equals("+")){
+				return true;
+		}
+		else {
+			return false;
+		}
+	}
 	public ArrayList<Translocation> getTranslocations() {
 		ArrayList<Translocation> al = new ArrayList<Translocation>();
 		for(String key: trans.keySet()) {
@@ -541,6 +539,9 @@ public class TranslocationController {
 	private void printEventsComplete(BufferedWriter bwOut, boolean print) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
+				if (tl.getIGVPos() == testPosition) {
+					System.out.println("Junction found and printing");
+				}
 				if(tl.getSams().size()>0) {
 					try {
 						//bwOut.write(tl.getIGVPos()+"\n");
@@ -553,11 +554,55 @@ public class TranslocationController {
 						e.printStackTrace();
 					}
 				}
+			}
+		}
+	}
+	private void addTDNASplit() {
+		for(String key: trans.keySet()){
+			for(Translocation tl: trans.get(key)) {
+				if(tl.getSams().size()>0) {
+					tl.splitTDNAReads();
+					tl.getMinimumJunction();
+				}
 				
 			}
 		}
 		
 	}
+
+	public static int getSACigarLength(SAMRecord s) {
+		String SATag = (String) s.getAttribute("SA");
+		String cigarString = SATag.split(",|;")[3];
+		int countS = countChar(cigarString, 'S');
+		int countM = countChar(cigarString, 'M');
+		//int countI = countChar(cigarString, 'I');
+		//int countD = countChar(cigarString, 'D');
+		int totalCount = countS+countM;
+		return totalCount;
+	}
+	public static int getSASecondCigarLength(SAMRecord s) {
+		String SATag = (String) s.getAttribute("SA");
+		String cigarString = SATag.split(",|;")[9];
+		int countS = countChar(cigarString, 'S');
+		int countM = countChar(cigarString, 'M');
+		//int countI = countChar(cigarString, 'I');
+		//int countD = countChar(cigarString, 'D');
+		int totalCount = countS+countM;
+		return totalCount;
+	}
+	
+	public static int countChar(String str, char c)
+	{
+	    int count = 0;
+
+	    for(int i=0; i < str.length(); i++)
+	    {    if(str.charAt(i) == c)
+	            count++;
+	    }
+
+	    return count;
+	}
+
 	public Translocation searchTranslocation(Translocation tl) {
 		if(this.searchRealPositions.size()==0) {
 			this.hashAllRealPositions();
@@ -567,22 +612,9 @@ public class TranslocationController {
 		return found;
 	}
 
-	private Translocation searchTranslocation(String string, int startDebug, int endDebug, boolean forward) {
-		ArrayList<Translocation> al = trans.get(string);
-		if(al==null) {
-			System.out.println("no translocation in chr "+string);
-			return null;
-		}
-		for(Translocation tl: al) {
-			int pos = tl.getPosition();
-			if(pos>startDebug && pos < endDebug && tl.isForward() == forward) {
-				//System.out.println("FOUND!");
-				return tl;
-			}
-		}
-		return null;
-	}
-
+	/**
+	 * Finds and prints the locations of the LB and RB nicks
+	 */
 	public void testLBRB() {
 		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //System.out.println(rsf.isIndexed());
@@ -595,32 +627,29 @@ public class TranslocationController {
 	    ReferenceSequence rs = rsf.getSequence(chr);
 	    
 	    //System.out.println(rs==null);
-	    //should give the first occurrence of LB in TDNA which is indexLB
+	    //should give the position of the first occurrence of LB in TDNA which is indexLB
 	    String TDNA = rs.getBaseString().toUpperCase();
 	    int indexLB = TDNA.indexOf(LB);
-	    //maybe reverse complement?
 	    // here LB and RB are declared to be forward
 	    boolean LBisForward = true;
 	    boolean RBisForward = true;
-	    //if LB never occurs, reverse complement. If LB then does occur, add 4 to the position because of the nicks. and declare LB reverse
+	    //if LB never occurs, reverse complement. If LB does occur, shift position by 4 because of the nick, and declare LB reverse
 	    if(indexLB == -1) {
 	    	indexLB = TDNA.indexOf(Utils.reverseComplement(LB));
 	    	if(indexLB>=0) {
-	    		//heb ik veranderd van 3 naar 4
 	    		indexLB+=4;
 	    	}
 	    	LBisForward = false;
 	    }
-	    //als LB wel gevonden wordt, is die dus forward. dan moet de index 22 bp verderop vanwege de nick
+	    //if the LB can be found, it should be forward. The index should then be shifted by 22.
 	    else {
 	    	indexLB +=22;
 	    }
-	    //en nu hetzelfde voor de RB, maar dan +3 of +23.
+	    //same for RB, but +3 or +23
 	    int indexRB = TDNA.indexOf(RB);
 	    if(indexRB == -1) {
 	    	indexRB = TDNA.indexOf(Utils.reverseComplement(RB));
 	    	if(indexRB>=0) {
-	    		//heb ik veranderd van 2 naar 3
 	    		indexRB+=3;
 	    	}
 	    	RBisForward = false;
@@ -628,17 +657,12 @@ public class TranslocationController {
 	    else {
 	    	indexRB +=23;
 	    }
-	    //als een van beide borders niet gevonden kan worden, geef een error, laat zien welke fout zijn, en stop het programma
+	    //if neither borders are found, give an error, show which is wrong, and stop the program
 	    if(indexLB == -1 || indexRB == -1) {
 	    	System.err.println("LB or RB could not be found in sequence "+chr);
 	    	System.err.println("LB: "+indexLB);
 		    System.err.println("RB: "+indexRB);
 		    System.exit(0);
-	    	//geen idee waarom de lines hieronder aanwezig zijn:
-		    //LBisForward = false;
-	    	//RBisForward = true;
-	    	//indexLB = 1;
-		   // indexRB = TDNA.length();
 	    }
 	    System.out.println("Setting LB "+indexLB+" "+LBisForward);
 	    System.out.println("Setting RB "+indexRB+" "+RBisForward);
@@ -660,4 +684,5 @@ public class TranslocationController {
 			}
 		}
 	}
+
 }

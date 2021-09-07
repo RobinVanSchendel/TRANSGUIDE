@@ -37,11 +37,12 @@ public class SAMReader {
 		}
 		MyOptions options = new MyOptions(cmd);
 		//String dir = "E:\\NGS\\Genome_Scan_104269\\umi_cons_bam\\";
-		String dir = "D:\\Lejon\\Documents\\T-DNA integration job\\GUIDEseq_experiment_8\\";
+		//String dir = "E:\\NGS_data\\bamfiles\\300bp_uncropped\\";
+		String dir = "E:\\NGS_data\\bamfiles\\";
 		boolean recursive = true;
 		boolean combineFiles = false;
-		//default == 2
-		int minSupport = 2;
+		//default == 1 (for now, because duplicate position filter needs to come before anchor filter)
+		int minSupport = 1;
 		//default 500
 		int maxReadsPerTrans = 1000;
 		//default -1 == all
@@ -50,7 +51,8 @@ public class SAMReader {
 		int maxReads = -1;
 		
 		ArrayList<File> files = OutputCommands.searchSortedBam(new File(dir), recursive);
-		PrimerController pc = new PrimerController(new File("Sample_Primer_104406.txt"));
+		PrimerController pc = new PrimerController(new File("Sample_Primer.txt"));
+		//PrimerController pc = new PrimerController(new File("Sample_Primer_RBcutter.txt"));
 		File out = new File("out.txt");
 		
 		BufferedWriter allEvents = null;
@@ -100,7 +102,7 @@ public class SAMReader {
 			sp.setFile(f);
 			System.out.println(f.getName());
 			System.out.println(sp.getDNAsample());
-			if(f.getName().contains("tim-teb-4-LB")) {
+			//if(f.getName().contains("LZ45-1-L")) {
 			//	System.out.println("contains");
 			//if(sp.getRun()!=null && (sp.getRun().contentEquals("104269") || sp.getRun().contains("Exp6"))) {
 				
@@ -124,7 +126,7 @@ public class SAMReader {
 					hm.put(sp,null);
 		        }
 			//System.out.println("hier! " +sp.getRun());
-			}
+			//}
 		}
 		//reiterate all samples in hash
 		if(combineFiles) {

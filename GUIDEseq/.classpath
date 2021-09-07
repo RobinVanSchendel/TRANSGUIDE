@@ -4,7 +4,11 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="lib" path="libraries/commons-cli-1.4.jar"/>
 	<classpathentry kind="src" path="/DNAToolAnalysis"/>
-	<classpathentry kind="lib" path="libraries/htsjdk-2.18.0-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="libraries/htsjdk-2.18.0-SNAPSHOT.jar" sourcepath="D:/Lejon/Documents/T-DNA integration job/git/Samtools_source_docs/htsjdk-2.18.0-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/D:/Lejon/Documents/T-DNA%20integration%20job/git/Samtools_source_docs/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="lib" path="libraries/jillion-5.3-SNAPSHOT.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
