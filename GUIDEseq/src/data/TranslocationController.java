@@ -160,10 +160,11 @@ public class TranslocationController {
 							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
 							boolean added = tl.addSam(srec);
 						//below duplicates are not included, only anchors (first of pair), and the read has to align primarily to the chromosome, which will remove some anchors from very small fragments, or fillers with very large perfect alignments.
-						if((isDuplicate(srec)==false) && (tl.containsRecord(srec.getReadName())==true) && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) { 
-								if(srec.getReadName().contentEquals(testName)) {
-									System.err.println("added mate =  "+added +", name: " +srec.getReadName()+ ", getcontigmate: " +tl.getContigMate());
-								}
+							if((isDuplicate(srec)==false) && (tl.containsRecord(srec.getReadName())==true) && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) { 
+									if(srec.getReadName().contentEquals(testName)) {
+										System.err.println("added mate =  "+added +", name: " +srec.getReadName()+ ", getcontigmate: " +tl.getContigMate());
+									}
+							}
 						}
 						//sometimes hard clipped reads went through our duplicate filter
 						if(isDuplicate(srec)) {
@@ -180,8 +181,6 @@ public class TranslocationController {
 				}
 				//System.out.println(tl.getReads());
 				}
-			}
-			
 		}
 		System.out.println("Found "+duplicates+" duplicate mates (should be >0)");
 	}
