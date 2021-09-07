@@ -17,6 +17,7 @@ public class SamplePrimer {
 	private File file;
 	private String run;
 	private boolean UMI;
+	private MyOptions options;
 	
 	public SamplePrimer(String sample, String primer, File ref, String chr, boolean LB, String DNAsample, String genotype, String ecotype, String P5, String run, boolean uMI) {
 		this.sample = sample;
@@ -30,6 +31,22 @@ public class SamplePrimer {
 		this.P5 = P5;
 		this.run = run;
 		this.UMI = uMI;
+	}
+	public SamplePrimer(MyOptions options) {
+		this.options = options;
+		this.sample = options.getSample();
+		this.primer = options.getPrimer();
+		this.ref = options.getRefFile();
+		this.chr = options.getChr();
+		this.LB = options.isLBOption();
+		this.DNAsample = options.getDNAsample();
+		this.genotype = options.getGenotype();
+		this.ecotype = options.getEcotype();
+		this.P5 = options.getP5();
+		this.UMI = options.isUMI();
+		setFile(options.getBam());
+		System.out.println("SETTING" +options.getP5());
+		System.out.println("SETTING" +this.isFirstOfPairFlag());
 	}
 	public static SamplePrimer parse(String line) {
 		String[] parts = line.split("\t");
