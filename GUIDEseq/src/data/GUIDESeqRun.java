@@ -176,6 +176,14 @@ public class GUIDESeqRun {
 				.build();
 		o.addOption(d);
 		
+		Option e = Option.builder("e")
+				.longOpt("ecotype")
+				.hasArg()
+				.argName("STRING")
+				.desc("The ecotype")
+				.build();
+		o.addOption(e);
+		
 		
 		return o;
 	}

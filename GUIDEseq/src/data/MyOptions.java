@@ -230,7 +230,7 @@ private String chr;
 	}
 
 	public String getEcotype() {
-		if(cmd.hasOption("ecootype")) {
+		if(cmd.hasOption("ecotype")) {
 			return cmd.getOptionValue("ecotype");
 		}
 		return "";
