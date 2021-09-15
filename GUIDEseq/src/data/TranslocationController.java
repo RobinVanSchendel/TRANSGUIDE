@@ -260,7 +260,7 @@ public class TranslocationController {
     	//System.out.println(start);
     	//System.out.println(end);
     	//System.out.println(sr.hasIndex());
-    	SAMRecordIterator r = sr.iterator () ;
+    	SAMRecordIterator r = sr.iterator();
     	System.out.println("Primerstart:" +primerStart +", Primerend:" +primerEnd +", positivestrand:"+positiveStrand +", primerseq:"+sp.getPrimer());
 	    
 	    int count = 0;
@@ -312,22 +312,27 @@ public class TranslocationController {
         	// don't take secondary alignment reads
         	// don't take reads with no secondary alignment, all T-DNA reads are expected to have at least 2 alignments
         	// don't take any reads that are duplicates
-        	// only take the T-DNA reads.
-        	if (srec.getAttribute("SA") != null){
-        		String SATag = (String) srec.getAttribute("SA");
-        		String[] SAList = SATag.split(",|;");
-        		int SALength = SAList.length;
-        		if((srec.isSecondaryAlignment()==false) && (isDuplicate(srec)==false) && (srec.getFirstOfPairFlag()== sp.isFirstOfPairFlag())){
-        				if(debug) {
-            			if(srec.getReadName().contentEquals(testName)) {
-                			System.err.println("launch analysis - checkpoint 1");
-            			}
-        			}
+        	// take the read containing the T-DNA primer
+        	if (!srec.isSecondaryAlignment() &&
+    			srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag() &&
+    			!isDuplicate(srec) &&
+    			srec.hasAttribute("SA")){
+	        		//System.out.println(srec.getAttribute("SA"));
+	        		String SATag = (String) srec.getAttribute("SA");
+	        		String[] SAList = SATag.split(",|;");
+	        		int SALength = SAList.length;
+    				if(debug) {
+    					if(srec.getReadName().contentEquals(testName)) {
+            			System.err.println("launch analysis - checkpoint 1");
+    					}
+    				}
         			NM0Count++;
+        			//TODO: is that also true for all 4 T-DNA/primer combinations?
         			if(srec.getReadNegativeStrandFlag()==true) {
         				if(debug) {
                 		}
         				srec.reverseComplement();
+        				//TODO: still need to invert CigarString?
 
         				if(srec.getReadName().contentEquals(testName)) {
         					System.out.println("AFTER RCing");
@@ -378,7 +383,6 @@ public class TranslocationController {
         		if(isDuplicate(srec)) {
        				duplicateFlag++;
        			}
-        	}
         	if(count%1000000==0) {
         		System.out.println("Already processed "+count+" reads, NM0 reads: "+NM0Count+", Ncount: "+Ncount);
         		//break;
@@ -452,18 +456,27 @@ public class TranslocationController {
 	 * @return the start of the first secondary alignment
 	 */
 	private static int getPosSATag(SAMRecord srec) {
-		String SATag = (String) srec.getAttribute("SA");
-		String intString = SATag.split(",|;")[1];
-		return Integer.parseInt(intString);
+		if(srec.hasAttribute("SA")) {
+			String SATag = (String) srec.getAttribute("SA");
+			String intString = SATag.split(",|;")[1];
+			return Integer.parseInt(intString);
+		}
+		return -1;
 	}
 
 	private static String getContigSATag(SAMRecord srec) {
-		String SATag = (String) srec.getAttribute("SA");
-		return SATag.split(",|;")[0];
+		if(srec.hasAttribute("SA")) {
+			String SATag = (String) srec.getAttribute("SA");
+			return SATag.split(",|;")[0];
+		}
+		return null;
 	}
 	private static String getContigSecondSATag(SAMRecord srec) {
-		String SATag = (String) srec.getAttribute("SA");
-		return SATag.split(",|;")[6];
+		if(srec.hasAttribute("SA")) {
+			String SATag = (String) srec.getAttribute("SA");
+			return SATag.split(",|;")[6];
+		}
+		return null;
 	}
 	private static int getPosSecondSATag(SAMRecord srec) {
 		String SATag = (String) srec.getAttribute("SA");
