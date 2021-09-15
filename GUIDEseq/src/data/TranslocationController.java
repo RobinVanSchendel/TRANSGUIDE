@@ -260,7 +260,7 @@ public class TranslocationController {
     	//System.out.println(start);
     	//System.out.println(end);
     	//System.out.println(sr.hasIndex());
-	    SAMRecordIterator r = sr.query(sp.getChr(), start, end, false);
+    	SAMRecordIterator r = sr.iterator () ;
     	System.out.println("Primerstart:" +primerStart +", Primerend:" +primerEnd +", positivestrand:"+positiveStrand +", primerseq:"+sp.getPrimer());
 	    
 	    int count = 0;
