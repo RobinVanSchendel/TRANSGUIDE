@@ -1317,18 +1317,7 @@ public class Translocation {
 		splitReads.append("\r\nend of TDNA\r\n");
 		
 		//finally remove the bad reads altogether
-		for (String br: badreads) {
-			for(int i=sams.size()-1;i>=0;i--) {
-				if(sams.get(i).getReadName().contentEquals(br)) {
-					sams.remove(i);
-					if(br.equals(testName)) { 
-						System.err.println("The read "+testName+" has been removed");
-						}
-				}
-			}
-			names.remove(br);
-		}
-
+		this.removeSams(badreads);
 		
 		splitReads.append("GENOMIC reads\r\n");
 		for(SAMRecord sr: sams) {
@@ -1344,7 +1333,34 @@ public class Translocation {
 		splitReads.append("end of GENOMIC reads\r\n========\r\n");
 	}
 		
-	
+	/** Method for removing multiple sam records.
+	 *  be very careful when applying this method as this might alter the outcomes.
+	 * 
+	 * @param badreads ArrayList of names that are to be removed
+	 */
+	private void removeSams(ArrayList<String> badreads) {
+		for(String s: badreads) {
+			removeSam(s);
+		}
+	}
+	/** method to remove a read name based on the name.
+	 *  Be very careful with applying this method as it will alter the outcomes of the translocaion
+	 * 
+	 * @param readName the name of the read to be removed
+	 * @return true if the sam read has been removed
+	 */
+	private boolean removeSam(String readName) {
+		boolean removed = false;
+		for(int i=sams.size()-1;i>=0;i--) {
+			if(sams.get(i).getReadName().contentEquals(readName)) {
+				sams.remove(i);
+				removed = true;
+			}
+		}
+		names.remove(readName);
+		return removed;
+	}
+
 	private static int getPosSATagEnd(SAMRecord sam) {
 		String SATag = (String) sam.getAttribute("SA");
 		String intString = SATag.split(",|;")[1];
@@ -1623,15 +1639,7 @@ public class Translocation {
 		
 	}
 	public boolean removeSam(SAMRecord srec) {
-		boolean removed = false;
-		for(int i=sams.size()-1;i>=0;i--) {
-			if(sams.get(i).getReadName().contentEquals(srec.getReadName())) {
-				sams.remove(i);
-				removed = true;
-			}
-		}
-		names.remove(srec.getReadName());
-		return removed;
+		return this.removeSam(srec.getReadName());
 	}
 
 	public String matchEnd(String string) {
