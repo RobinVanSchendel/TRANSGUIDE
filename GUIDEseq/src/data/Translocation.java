@@ -1472,7 +1472,8 @@ public class Translocation {
 		}
 		return false;
 	}
-	/**
+	/**Adds the reference sequence based on the calculated junction position from realPosition
+	 * takes into account the orientation of the event
 	 * 
 	 * @param rsf
 	 */
@@ -1480,19 +1481,21 @@ public class Translocation {
 		int start = -1;
 		int end = -1;
 		if (this.getGenomicSequenceMostRepeated()!=NOGENOMIC) {
-			if(this.isForward()==true) {
-				start = this.getRealPosition()-refSize;
+			int realPosition = this.getRealPosition();
+			if(this.isForward()) {
+				start = realPosition-refSize;
 				//safety
 				if(start<1) {
 					start = 1;
 				}
-				end = this.getRealPosition();
+				end = realPosition;
 				if (end <= rsf.getSequence(this.getContigMate()).length()) {
 					this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
 					//take the reverse complement
-					String compRef = Utils.reverseComplement(this.ref);
-					if(compRef.startsWith(this.getGenomicSequenceMostRepeated().toUpperCase())==false) {
-						int getMismatches = getMismatches(compRef,this.getGenomicSequenceMostRepeated().toUpperCase());
+					//bug, the ref also needs to be updated
+					ref = Utils.reverseComplement(this.ref);
+					if(ref.startsWith(this.getGenomicSequenceMostRepeated().toUpperCase())==false) {
+						int getMismatches = getMismatches(ref,this.getGenomicSequenceMostRepeated().toUpperCase());
 						if(getMismatches <= SamplePrimer.getMaxMismatches()) {
 							addWarning("Ref sequence deviates from sequence in reads: "+getMismatches+" mismatches");
 						}
@@ -1506,8 +1509,8 @@ public class Translocation {
 				}
 			}
 			else {
-				start = this.getRealPosition();
-				end = this.getRealPosition()+refSize;
+				start = realPosition;
+				end = realPosition+refSize;
 				if (start <= rsf.getSequence(this.getContigMate()).length()) {
 					if(end>rsf.getSequence(this.getContigMate()).length()) {
 						end = rsf.getSequence(this.getContigMate()).length();
