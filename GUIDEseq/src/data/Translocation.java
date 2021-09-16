@@ -1,9 +1,7 @@
 package data;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,7 +10,6 @@ import java.util.stream.Collectors;
 import dnaanalysis.InsertionSolverTwoSides;
 import dnaanalysis.RandomInsertionSolverTwoSides;
 import htsjdk.samtools.*;
-import htsjdk.samtools.SAMRecord.SAMTagAndValue;
 import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequenceFileFactory;
@@ -29,7 +26,7 @@ public class Translocation {
 	public HashMap<String, Integer> names;
 	private String filler = "";
 	private String hom = "";
-	private String jType ="";
+	private String jType;
 	private String error;
 	private String ref;
 	private String realPositionCounter;
@@ -85,19 +82,20 @@ public class Translocation {
 			System.err.println("added "+s.getCigarString());
 		}
 		if(takeRC == true) {
-			s.setAttribute("OC", s.getCigarString());
-			s = Translocation.reverseComplementSAMRecord(s);
+			Translocation.reverseComplementSAMRecord(s);
 		}
 		sams.add(s);
 		names.put(s.getReadName(),0);
 		return true;
 	}
 
-	/**
+	/**Perform the reverse complement of a SAMRecord
+	 * Since this function contains a bug in the SAMRecord library
+	 * this method is created to contain all code to perform a proper
+	 * reverseComplement, including reversing CigarStrings
 	 * @param sr
-	 * @return String "srec" containing reverse complemented CIGAR of SAMRecord "sr"
 	 */
-	public static SAMRecord reverseComplementSAMRecord(SAMRecord srec) {
+	public static void reverseComplementSAMRecord(SAMRecord srec) {
 		String cigar = srec.getCigarString();
 		boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
 		
@@ -119,7 +117,6 @@ public class Translocation {
 			}
 			srec.setCigar(rev);
 		}
-		return srec;
 	}
 	
 	/**
@@ -951,7 +948,7 @@ public class Translocation {
 		}
 	}
 	private String getMinimumJunctionConsensus() {
-		if (this.junctionMinimumcons.size() != 0){
+		if (junctionMinimumcons!=null && this.junctionMinimumcons.size() != 0){
 			return this.junctionMinimumcons.getConsensusString();
 		}
 		else {
@@ -960,8 +957,8 @@ public class Translocation {
 	}
 	
 	public String getTranslocationSequenceMostRepeated() {
-		if (this.TDNAfullcons.size() != 0){
-		return this.TDNAfullcons.getMostRepeatedString();
+		if (TDNAfullcons!=null && this.TDNAfullcons.size() != 0){
+			return this.TDNAfullcons.getMostRepeatedString();
 		}
 		else {
 			return NOTRANSLOCATION;
