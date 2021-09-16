@@ -96,12 +96,10 @@ public class Translocation {
 	 * @param sr
 	 */
 	public static void reverseComplementSAMRecord(SAMRecord srec) {
-		String cigar = srec.getCigarString();
-		boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
-		
 		srec.reverseComplement();
 		//there is a bug in the library that performs the reverseComplement
 		//so take care of this myself
+		/*
 		Cigar tempCigar = srec.getCigar();
 		
 		//bug so reverse it myself
@@ -117,6 +115,7 @@ public class Translocation {
 			}
 			srec.setCigar(rev);
 		}
+		*/
 	}
 	
 	/**
