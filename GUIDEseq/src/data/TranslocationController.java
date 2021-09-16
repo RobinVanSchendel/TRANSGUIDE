@@ -139,36 +139,12 @@ public class TranslocationController {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
 				count++;
-				//System.out.println(tl.getContigMate());
 				SAMRecordIterator sri = sr.query(tl.getContigMate(), tl.getPosition()-around, tl.getPosition()+around, false);
-				int counter2 = 0;
-				//System.out.println(tl.getContigMate()+":"+tl.getPosition());
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					if(srec.getContig()!=null) {
-						//if first read is in, why remove the second if it is duplicate?
-						/*
-						if(tl.containsRecord(srec.getReadName())) {
-							System.out.println(srec.getDuplicateReadFlag()+" "+isDuplicate(srec));
-							if(isDuplicate(srec)) {
-								System.out.println(srec.getCigarString());
-								tl.printMate(srec);
-							}
-						*/
 						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
-							//System.out.println("adding "+srec.getContig()+":" +srec.getAlignmentStart()+"-"+srec.getAlignmentEnd());
-							//System.out.println("adding "+srec.getReadName() + " "+srec.getContig());
-							boolean added = tl.addSam(srec);
-						//below duplicates are not included, only anchors (first of pair), and the read has to align primarily to the chromosome, which will remove some anchors from very small fragments, or fillers with very large perfect alignments.
-							if((isDuplicate(srec)==false) && (tl.containsRecord(srec.getReadName())==true) && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) { 
-									if(srec.getReadName().contentEquals(testName)) {
-										System.err.println("added mate =  "+added +", name: " +srec.getReadName()+ ", getcontigmate: " +tl.getContigMate());
-									}
-							}
-						}
-						//sometimes hard clipped reads went through our duplicate filter
-						if(isDuplicate(srec)) {
-							tl.removeSam(srec);
+							tl.addSam(srec);
 						}
 						if(isDuplicate(srec)) {
 							duplicates++;
@@ -179,8 +155,7 @@ public class TranslocationController {
 				if(count%1000==0) {
 					System.out.println("Already processed "+count+" mates "+trans.get(key).size() + " from chr "+key);
 				}
-				//System.out.println(tl.getReads());
-				}
+			}
 		}
 		System.out.println("Found "+duplicates+" duplicate mates (should be >0)");
 	}

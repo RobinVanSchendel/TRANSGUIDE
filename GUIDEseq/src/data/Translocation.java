@@ -1622,14 +1622,16 @@ public class Translocation {
 		}
 		
 	}
-	public void removeSam(SAMRecord srec) {
-
+	public boolean removeSam(SAMRecord srec) {
+		boolean removed = false;
 		for(int i=sams.size()-1;i>=0;i--) {
 			if(sams.get(i).getReadName().contentEquals(srec.getReadName())) {
 				sams.remove(i);
+				removed = true;
 			}
 		}
 		names.remove(srec.getReadName());
+		return removed;
 	}
 
 	public String matchEnd(String string) {
