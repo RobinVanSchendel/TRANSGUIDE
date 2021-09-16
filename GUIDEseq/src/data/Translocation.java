@@ -1480,8 +1480,14 @@ public class Translocation {
 	public void addRefSequence(ReferenceSequenceFile rsf) {
 		int start = -1;
 		int end = -1;
-		if (this.getGenomicSequenceMostRepeated()!=NOGENOMIC) {
+		String genomicSequenceMostRepeated = getGenomicSequenceMostRepeated().toUpperCase();
+		if (!genomicSequenceMostRepeated.contentEquals(NOGENOMIC)) {
+			//these local variables are to prevent additional calls to these expensive methods
+			//reuse them and don't overwrite
 			int realPosition = this.getRealPosition();
+			String contigMate = this.getContigMate();
+			ReferenceSequence seq = rsf.getSequence(contigMate);
+			
 			if(this.isForward()) {
 				start = realPosition-refSize;
 				//safety
@@ -1489,13 +1495,13 @@ public class Translocation {
 					start = 1;
 				}
 				end = realPosition;
-				if (end <= rsf.getSequence(this.getContigMate()).length()) {
-					this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
+				if (end <= seq.length()) {
+					this.ref = rsf.getSubsequenceAt(contigMate, start, end).getBaseString();
 					//take the reverse complement
 					//bug, the ref also needs to be updated
 					ref = Utils.reverseComplement(this.ref);
-					if(ref.startsWith(this.getGenomicSequenceMostRepeated().toUpperCase())==false) {
-						int getMismatches = getMismatches(ref,this.getGenomicSequenceMostRepeated().toUpperCase());
+					if(ref.startsWith(genomicSequenceMostRepeated)==false) {
+						int getMismatches = getMismatches(ref,genomicSequenceMostRepeated);
 						if(getMismatches <= SamplePrimer.getMaxMismatches()) {
 							addWarning("Ref sequence deviates from sequence in reads: "+getMismatches+" mismatches");
 						}
@@ -1504,21 +1510,21 @@ public class Translocation {
 						}
 					}
 				}
-				if (end > rsf.getSequence(this.getContigMate()).length()) {
+				else if (end > seq.length()) {
 					this.addError("Probably trying to get a coordinate from the wrong chromosome");
 				}
 			}
 			else {
 				start = realPosition;
 				end = realPosition+refSize;
-				if (start <= rsf.getSequence(this.getContigMate()).length()) {
-					if(end>rsf.getSequence(this.getContigMate()).length()) {
-						end = rsf.getSequence(this.getContigMate()).length();
+				if (start <= rsf.getSequence(contigMate).length()) {
+					if(end>seq.length()) {
+						end = seq.length();
 					}
-					this.ref = rsf.getSubsequenceAt(this.getContigMate(), start, end).getBaseString();
+					this.ref = rsf.getSubsequenceAt(contigMate, start, end).getBaseString();
 					String compRef = this.ref;
-					if(compRef.startsWith(this.getGenomicSequenceMostRepeated())==false) {
-						int getMismatches = getMismatches(compRef,this.getGenomicSequenceMostRepeated());
+					if(compRef.startsWith(genomicSequenceMostRepeated)==false) {
+						int getMismatches = getMismatches(compRef,genomicSequenceMostRepeated);
 						if(getMismatches <= SamplePrimer.getMaxMismatches()) {
 							addWarning("Ref sequence from "+this.getContigMate() +" deviates from sequence in reads: "+getMismatches+" mismatches");
 						}
@@ -1527,7 +1533,7 @@ public class Translocation {
 						}
 					}
 				}
-				if (start > rsf.getSequence(this.getContigMate()).length()) {
+				else if (start > seq.length()) {
 					this.addError("Trying to get a coordinate from the wrong chromosome");
 				}
 			}
