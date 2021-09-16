@@ -97,28 +97,28 @@ public class Translocation {
 	 * @param sr
 	 * @return String "srec" containing reverse complemented CIGAR of SAMRecord "sr"
 	 */
-	private static SAMRecord reverseComplementSAMRecord(SAMRecord sr) {
-		SAMRecord srec = sr.deepCopy();
-		//String cigar = srec.getCigarString();
-		//boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
+	public static SAMRecord reverseComplementSAMRecord(SAMRecord srec) {
+		String cigar = srec.getCigarString();
+		boolean currentNegativeStrandFlag = srec.getReadNegativeStrandFlag();
 		
 		srec.reverseComplement();
-		//bug so reverse it myself
-		//Cigar tempCigar = srec.getCigar();
+		//there is a bug in the library that performs the reverseComplement
+		//so take care of this myself
+		Cigar tempCigar = srec.getCigar();
 		
 		//bug so reverse it myself
-		//if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
-		//	srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
-		//}
+		if(srec.getReadNegativeStrandFlag()==currentNegativeStrandFlag) {
+			srec.setReadNegativeStrandFlag(!currentNegativeStrandFlag);
+		}
 		
-		//if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
-		//	Cigar rev = new Cigar();
+		if(tempCigar.numCigarElements()>1 && cigar.equals(srec.getCigarString())) {
+			Cigar rev = new Cigar();
 			//reverse the cigar
-		//	for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
-		//		rev.add(tempCigar.getCigarElement(i));
-		//	}
-		//	srec.setCigar(rev);
-		//}
+			for(int i = tempCigar.numCigarElements()-1;i>=0;i--) {
+				rev.add(tempCigar.getCigarElement(i));
+			}
+			srec.setCigar(rev);
+		}
 		return srec;
 	}
 	

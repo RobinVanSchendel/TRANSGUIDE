@@ -303,11 +303,16 @@ public class TranslocationController {
     				}
         			NM0Count++;
         			//TODO: is that also true for all 4 T-DNA/primer combinations?
+        			
+        			//System.out.println(srec.getContig()+" "+srec.getReadNegativeStrandFlag()+" "+srec.getAlignmentStart()+" "+srec.getReadString());
+        			
         			if(srec.getReadNegativeStrandFlag()==true) {
         				if(debug) {
                 		}
-        				srec.reverseComplement();
-        				//TODO: still need to invert CigarString?
+        				//This has to be done via this method as the
+        				//reverseComplement method from SAMRecord contains a bug
+        				//that does not reverse the Cigar
+            			Translocation.reverseComplementSAMRecord(srec);
 
         				if(srec.getReadName().contentEquals(testName)) {
         					System.out.println("AFTER RCing");
