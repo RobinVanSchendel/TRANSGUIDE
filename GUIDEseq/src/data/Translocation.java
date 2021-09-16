@@ -646,6 +646,17 @@ public class Translocation {
 			
 			String right = this.getGenomicSequenceRelative(start,end); 
 			int adjustmentRight = start;//Integer.parseInt(-1);
+			/*
+			System.out.println("left:"+left);
+			System.out.println("right:"+left);
+			System.out.println("filler:"+getFiller());
+			System.out.println(this.getSams().size());
+			System.out.println(this.isOK());
+			System.out.println(this.error);
+			System.out.println(this.warning);
+			System.out.println(this.getContigMate());
+			*/
+			
 			is = new InsertionSolverTwoSides(left, right,this.getFiller(),"test");
 			is.setAdjustedPositionLeft(adjustmentLeft);		
 			is.setAdjustedPositionRight(adjustmentRight);
@@ -704,40 +715,50 @@ public class Translocation {
 	    
 	    ReferenceSequence rs = rsf.getSequence(chr);
 	    String tdna = this.getTDNASequenceMostRepeated();
+	    
+	    ConsensusInt con = new ConsensusInt();
+	    int forwardReads = 0;
+	    int reverseReads = 0;
+	    
 	    for(SAMRecord sam: sams) {
-	    	if(sam.getReadString().startsWith(tdna) && sam.getContig().equals(sp.getChr())) {
-	    		if(!sam.getReadNegativeStrandFlag()) {
-		    		int pos = sam.getAlignmentEnd();
-		    		//System.out.println(pos);
-		    		int startPos = pos+start;
-		    		int endPos = pos+end;
-		    		String seq = rs.getBaseString().substring(startPos, endPos);
-		    		//System.out.println(sam.getCigarString());
-		    		//System.out.println(sam.getReadString());
-		    		//System.out.println(sam.getReadNegativeStrandFlag());
-		    		//System.out.println(seq);
-		    		return seq;
+	    	if(sam.getReadString().startsWith(tdna)) {// && sam.getContig().equals(sp.getChr())) {
+	    		if(sam.getContig().contentEquals(sp.getChr())) {
+		    		if(!sam.getReadNegativeStrandFlag()) {
+			    		int pos = sam.getAlignmentEnd();
+			    		con.add(pos);
+			    		forwardReads++;
+		    		}
+		    		else {
+		    			int pos = sam.getAlignmentStart();
+		    			con.add(pos);
+		    			reverseReads++;
+		    		}
 	    		}
-	    		//reverse strand, junction is at start of alignment
-	    		else {
-	    			int pos = sam.getAlignmentStart();
-		    		//System.out.println(pos);
-		    		int startPos = pos+start;
-		    		int endPos = pos+end;
-		    		String seq = rs.getBaseString().substring(startPos, endPos);
-		    		//need the rc
-		    		seq = Utils.reverseComplement(seq);
-		    		//System.out.println(sam.getCigarString());
-		    		//System.out.println(sam.getReadString());
-		    		//System.out.println(sam.getReadNegativeStrandFlag());
-		    		//System.out.println(seq);
-		    		return seq;
+	    		if(sam.hasAttribute("SA") && Translocation.getContigSATagIsContig(sam, sp.getChr())) {
+    				if(Translocation.isForwardSATag(sam)) {
+    					int pos = Translocation.getPosSATagEnd(sam);
+    					con.add(pos);
+    					forwardReads++;
+    				}
+    				else {
+    					int pos = Translocation.getPosSATag(sam);
+    					con.add(pos);
+    					reverseReads++;
+    				}
 	    		}
 	    	}
 	    }
-	    
-	    
-		return null;
+	    int pos = con.getMostRepeatedInt();
+	    if(pos<0) {
+	    	return null;
+	    }
+	    int startPos = pos+start;
+		int endPos = pos+end;
+		String seq = rs.getBaseString().substring(startPos, endPos);
+		if(reverseReads>forwardReads) {
+			seq = Utils.reverseComplement(seq);
+		}
+		return seq;
 	}
 	private int getDistanceToLBRB() {
 		if(sp.isLB()) {
