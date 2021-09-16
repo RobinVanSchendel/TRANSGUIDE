@@ -449,14 +449,14 @@ public class Translocation {
 			}
 			else {
 				if ((sp.getChr().equals(getContigSATag(sr))==true) && (getSACigarLength(sr)==2)) {
-					if (getForwardSATag(sr)==false) {
+					if (!isForwardSATag(sr)) {
 						if (indexFirstM > indexFirstS) {
 							int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
 							String tdnaPart = sr.getReadString().substring(0, mLength);
 							return tdnaPart;
 						}
 					}
-					if (getForwardSATag(sr)==true) {
+					if (isForwardSATag(sr)) {
 						if (indexFirstM < indexFirstS) {
 							int mLength = Integer.parseInt(SACigar.substring(0, indexFirstM));
 							String tdnaPart = sr.getReadString().substring(0, mLength);
@@ -469,14 +469,14 @@ public class Translocation {
 						String SACigar2 = SATag.split(",|;")[9];
 						int indexFirstM2 = SACigar2.indexOf("M");
 						int indexFirstS2 = SACigar2.indexOf("S");
-						if (getForwardSecondSATag(sr)==false) {
+						if (!isForwardSecondSATag(sr)) {
 							if (indexFirstS2 < indexFirstM2) {
 								int mLength = Integer.parseInt(SACigar2.substring(indexFirstS2+1, indexFirstM2));
 								String tdnaPart = sr.getReadString().substring(0, mLength);
 								return tdnaPart;
 							}
 						}
-						if (getForwardSecondSATag(sr)==true) {
+						if (isForwardSecondSATag(sr)) {
 							if (indexFirstM2 < indexFirstS2) {
 								int mLength = Integer.parseInt(SACigar2.substring(0, indexFirstM2));
 								String tdnaPart = sr.getReadString().substring(0, mLength);
@@ -570,18 +570,18 @@ public class Translocation {
 						int s1Length = Integer.parseInt(SACigar.substring(0, indexFirstS));
 						int s2Length = Integer.parseInt(SACigar.substring(indexFirstM+1, indexLastS));
 						int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
-						if ((getForwardSATag(sr)==true) && (adapterLength==s2Length)) {
+						if (isForwardSATag(sr) && adapterLength==s2Length) {
 							String genomicPart = sr.getReadString().substring(s1Length, s1Length+mLength);
 							return genomicPart;
 						}
-						if ((getForwardSATag(sr)==false) && (adapterLength==s1Length)) {
+						if (!isForwardSATag(sr) && adapterLength==s1Length) {
 							String genomicPart = sr.getReadString().substring(s1Length, s1Length+mLength);
 							return genomicPart;
 						}
 					}
 				}
 			}
-			if (sr.getContig().equals(sp.getChr())==false) {
+			if (!sr.getContig().equals(sp.getChr())) {
 				if(sr.getReadName().contentEquals(testName)) {
 					System.out.println("getgenomicpart - checkpoint7");
 				}
@@ -635,7 +635,7 @@ public class Translocation {
 		}
 		if(sr.getReadName().contentEquals(testName)) { 
 			System.err.println("The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
-			}
+		}
 		return null;
 	}
 	private boolean getFillerIsTemplated(int start, int end, int maxTries) {
@@ -790,29 +790,29 @@ public class Translocation {
 						int distance = (sam.getAlignmentEnd())-RBPos;
 						posA.add(distance);
 					}
-					if ((sp.getTDNARBisForward()==true) && (sam.getReadNegativeStrandFlag()==true) ) { //A00379:349:HM7WFDSXY:4:1443:4155:21120-3 (BL25_LZB1_RB_2_7137561)
+					if (sp.getTDNARBisForward() && (sam.getReadNegativeStrandFlag()==true) ) { //A00379:349:HM7WFDSXY:4:1443:4155:21120-3 (BL25_LZB1_RB_2_7137561)
 						int distance = (RBPos-sam.getAlignmentStart());
 						posA.add(distance);
 					}
 				}
 				else {
 					if ((getContigSATag(sam).equals(sp.getChr())==true) && (getSACigarLength(sam)==2)){ 
-						if ((sp.getTDNARBisForward()==false) && (getForwardSATag(sam)==true) ) { //A00379:349:HM7WFDSXY:4:1258:25102:13244-2 (BL29_LZB2_RB_1_30044710) & A00379:349:HM7WFDSXY:4:1347:6406:9392-2 (BL29_LZB2_RB_1_27525504)
+						if ((sp.getTDNARBisForward()==false) && (isForwardSATag(sam)==true) ) { //A00379:349:HM7WFDSXY:4:1258:25102:13244-2 (BL29_LZB2_RB_1_30044710) & A00379:349:HM7WFDSXY:4:1347:6406:9392-2 (BL29_LZB2_RB_1_27525504)
 							int distance = (getPosSATagEnd(sam)-(RBPos));
 							posA.add(distance);
 						}
-						if ((sp.getTDNARBisForward()==true) && (getForwardSATag(sam)==false) ) {//A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
+						if ((sp.getTDNARBisForward()==true) && (isForwardSATag(sam)==false) ) {//A00379:349:HM7WFDSXY:4:1250:15031:28902-1 (BL25_LZB1_RB_2_7137561)
 							int distance = RBPos-(getPosSATag(sam));
 							posA.add(distance);
 						}
 					}
 					else {
 						if ((getSALength(sam)>6) && (getContigSecondSATag(sam).equals(sp.getChr())==true) && (getSASecondCigarLength(sam)==2)){
-							if ((sp.getTDNARBisForward()==false) && (getForwardSecondSATag(sam)==true) ) { //
+							if ((sp.getTDNARBisForward()==false) && (isForwardSecondSATag(sam)==true) ) { //
 								int distance = (getPosSATagEnd2(sam)-(RBPos));
 								posA.add(distance);
 							}
-							if ((sp.getTDNARBisForward()==true) && (getForwardSecondSATag(sam)==false) ) {//M02948:174:000000000-JBDYN:1:1101:17357:17713 (LZ64-1-R-4-17861618)
+							if ((sp.getTDNARBisForward()==true) && (isForwardSecondSATag(sam)==false) ) {//M02948:174:000000000-JBDYN:1:1101:17357:17713 (LZ64-1-R-4-17861618)
 								int distance = RBPos-(getPosSATag2(sam));
 								posA.add(distance);
 							}
@@ -832,34 +832,34 @@ public class Translocation {
 		for(SAMRecord sam: sams) {
 			if(sam.getFirstOfPairFlag()==false) {
 				if ((sam.getContig().equals(sp.getChr())) && (sam.getCigarLength()==2)){
-					if ((sp.getTDNARBisForward()==true) && (sam.getReadNegativeStrandFlag()==false)) { 
+					if (sp.getTDNARBisForward() && !sam.getReadNegativeStrandFlag()) { 
 						int distance = (sam.getAlignmentEnd())-LBPos;
 						posA.add(distance);
 					}
-					if ((sp.getTDNARBisForward()==false) && (sam.getReadNegativeStrandFlag()==true) ) { 
+					if (!sp.getTDNARBisForward() && sam.getReadNegativeStrandFlag() ) { 
 						int distance = (LBPos-sam.getAlignmentStart());
 						posA.add(distance);
 					}
 				}
 				else {
-					if ((getContigSATag(sam).equals(sp.getChr())==true) && (getSACigarLength(sam)==2)){ 
-						if ((sp.getTDNARBisForward()==true) && (getForwardSATag(sam)==true) ) { 
+					if (getContigSATag(sam).equals(sp.getChr()) && getSACigarLength(sam)==2){ 
+						if (sp.getTDNARBisForward() && isForwardSATag(sam)) { 
 							int distance = (getPosSATagEnd(sam)-(LBPos));
 							posA.add(distance);
 						}
-						if ((sp.getTDNARBisForward()==false) && (getForwardSATag(sam)==false) ) {
+						if (!sp.getTDNARBisForward() && !isForwardSATag(sam)) {
 							int distance = LBPos-(getPosSATag(sam));
 							posA.add(distance);
 						}
 					}
 					else {
-						if ((getSALength(sam)>6) && (getContigSecondSATag(sam).equals(sp.getChr())==true) && (getSASecondCigarLength(sam)==2)){
-							if ((sp.getTDNARBisForward()==true) && (getForwardSecondSATag(sam)==true) ) { 
-								int distance = (getPosSATagEnd2(sam)-(LBPos));
+						if (getSALength(sam)>6 && getContigSecondSATag(sam).equals(sp.getChr()) && getSASecondCigarLength(sam)==2){
+							if (sp.getTDNARBisForward() && isForwardSecondSATag(sam)) { 
+								int distance = getPosSATagEnd2(sam)-LBPos;
 								posA.add(distance);
 							}
-							if ((sp.getTDNARBisForward()==false) && (getForwardSecondSATag(sam)==false) ) {
-								int distance = LBPos-(getPosSATag2(sam));
+							if (!sp.getTDNARBisForward() && !isForwardSecondSATag(sam)) {
+								int distance = LBPos-getPosSATag2(sam);
 								posA.add(distance);
 							}
 						}
@@ -1105,7 +1105,7 @@ public class Translocation {
 	 * @return a chromosomal position integer. 
 	 */
 	public static int getPosition2(SAMRecord s, SamplePrimer sp) {
-			if ((s.getContig().equals(sp.getChr())==false) && (s.getCigarLength()==2)) {
+			if (!s.getContig().equals(sp.getChr()) && s.getCigarLength()==2) {
 				if (s.getReadNegativeStrandFlag()==true){
 					return s.getAlignmentEnd();
 				}
@@ -1114,20 +1114,20 @@ public class Translocation {
 				}
 			}
 			else {
-				if ((sp.getChr().equals(getContigSATag(s))==false) && (getSACigarLength(s)==2)) {
-					if (getForwardSATag(s)==true) {
+				if (!sp.getChr().equals(getContigSATag(s)) && getSACigarLength(s)==2) {
+					if (isForwardSATag(s)==true) {
 						return getPosSATag(s);
 					}
-					if (getForwardSATag(s)==false) {
+					if (isForwardSATag(s)==false) {
 						return getPosSATagEnd(s);
 					}
 				}
 				else {
 					if ((getSALength(s)>6) && (sp.getChr().equals(getContigSecondSATag(s))==false) && (getSASecondCigarLength(s)==2)) {
-						if (getForwardSecondSATag(s)==true) {
+						if (isForwardSecondSATag(s)==true) {
 							return getPosSATag2(s);
 						}
-						if (getForwardSecondSATag(s)==false) {
+						if (isForwardSecondSATag(s)==false) {
 							return getPosSATagEnd2(s);
 						}
 					}
@@ -1197,7 +1197,7 @@ public class Translocation {
 			String intString = SATag.split(",|;")[7];
 			return Integer.parseInt(intString);
 	}
-	private static boolean getForwardSATag(SAMRecord sam) {
+	private static boolean isForwardSATag(SAMRecord sam) {
 		String SATag = (String) sam.getAttribute("SA");
 		String signString = SATag.split(",|;")[2];
 		if (signString.equals("+")){
@@ -1207,7 +1207,7 @@ public class Translocation {
 			return false;
 		}
 	}
-	private static boolean getForwardSecondSATag(SAMRecord sr) {
+	private static boolean isForwardSecondSATag(SAMRecord sr) {
 		String SATag = (String) sr.getAttribute("SA");
 		String signString = SATag.split(",|;")[8];
 		if (signString.equals("+")){
