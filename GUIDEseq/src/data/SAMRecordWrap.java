@@ -357,6 +357,7 @@ public class SAMRecordWrap{
 					return getPosSATagEnd();
 				}
 			}
+			//TODO: what is this?
 			else {
 				if ((getSALength()>6) && !getContigSecondSATagIsContig(sp.getChr()) && getSASecondCigarLength() == 2) {
 					if (isForwardSecondSATag()) {
@@ -385,5 +386,17 @@ public class SAMRecordWrap{
 			return tag <= 0;
 		}
 		return true;
+	}
+	/**The read that is amplified using specific primers located in the T-DNA
+	 * the read does not have to be primarily located in the T-DNA itself
+	 * 
+	 * @param sp
+	 * @return
+	 */
+	public boolean isStartRead(SamplePrimer sp) {
+		if(s.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
+			return true;
+		}
+		return false;
 	}
 }

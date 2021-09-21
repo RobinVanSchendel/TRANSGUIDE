@@ -965,13 +965,10 @@ public class Translocation {
 	public int getRealPosition(boolean debug) {
 		ArrayList<Integer> positions = new ArrayList<Integer>();
 		for(SAMRecordWrap s:sams) {
-			if (s.getFirstOfPairFlag()==sp.isFirstOfPairFlag()) {
+			if(s.isStartRead(sp)) {
 				int position=s.getPosition2(sp);
 				if (position!=-1) {
 					positions.add(position);
-				}
-				else {
-					//
 				}
 			}
 		}
