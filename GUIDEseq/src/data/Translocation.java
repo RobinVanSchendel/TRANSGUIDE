@@ -20,8 +20,8 @@ public class Translocation {
 	public static final int ANCHORLENGTH = 50;
 	public static final int MINMAPPINGQUALITY = 50;
 	private static final String adapterSeq = "AGATCGGAAGAGCG"; //temporarily only 14 bp of the adapter. Later methods below should take the part they need from the full adapter sequence
-	public ArrayList<SAMRecordWrap> sams;
-	public HashMap<String, Integer> names;
+	private ArrayList<SAMRecordWrap> sams;
+	private HashMap<String, Integer> names;
 	private String filler = "";
 	private String hom = "";
 	private String jType;
