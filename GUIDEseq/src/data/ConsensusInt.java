@@ -95,4 +95,19 @@ public class ConsensusInt{
         }
         return Math.sqrt(standardDeviation/ints.size());
     }
+	/**
+	 * @param list
+	 * @return the "mostRepeatedWord" integer 
+	 */
+	public static Integer consensusInt(ArrayList<Integer> list) {
+		Integer mostRepeatedWord 
+	    = list.stream()
+	          .collect(Collectors.groupingBy(w -> w, Collectors.counting()))
+	          .entrySet()
+	          .stream()
+	          .max(Comparator.comparing(Entry::getValue))
+	          .get()
+	          .getKey();
+		return mostRepeatedWord;
+	}
 }

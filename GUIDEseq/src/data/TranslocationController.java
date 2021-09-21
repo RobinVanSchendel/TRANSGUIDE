@@ -28,15 +28,15 @@ public class TranslocationController {
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
 	public static final String testName = "M02948:174:000000000-JBDYN:1:2118:12143:22583";
-	public static final String testPosition = "3:5639620";
+	public static final String testPosition = "1:25672880";
 	
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
 	}
 	
-	private Translocation getNearestTranslocation(SAMRecord s) {
-		if (Translocation.getPosition2(s, sp)!=-1) {  //filter for faulty positions
-			int pos = Translocation.getPosition2(s, sp);
+	private Translocation getNearestTranslocation(SAMRecordWrap s) {
+		int pos = s.getPosition2(sp);
+		if (pos!=-1) {  //filter for faulty positions
 			Translocation nearest = null;
 			int minDis = Integer.MAX_VALUE;
 			if(trans.get(s.getMateReferenceName()) == null) {
@@ -69,7 +69,7 @@ public class TranslocationController {
 			return null;
 		}
 	}
-	public Translocation addTranslocation(SAMRecord s, int maxReads) {
+	public Translocation addTranslocation(SAMRecordWrap s, int maxReads) {
 		Translocation nearest = getNearestTranslocation(s);
 		if(nearest !=null) {
 			if(nearest.getSams().size()<maxReads) {
@@ -110,7 +110,7 @@ public class TranslocationController {
 				int printNr = 0;
 				for(Translocation tl: trans.get(key)) {
 					if(tl.getSams().size()>0) {
-						if(tl.getNrAnchors(true)>=minSupport) {
+						if(tl.getNrPartialAnchors()>=minSupport) {
 							//String output = null;
 							String output = tl.toString(debug);
 							bw.write(sp.getSampleString()+"\t"+output+"\n");
@@ -144,7 +144,8 @@ public class TranslocationController {
 					SAMRecord srec = sri.next();
 					if(srec.getContig()!=null) {
 						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
-							tl.addSam(srec);
+							SAMRecordWrap s = new SAMRecordWrap(srec);
+							tl.addSam(s);
 						}
 						if(isDuplicate(srec)) {
 							duplicates++;
@@ -173,11 +174,11 @@ public class TranslocationController {
 	 * 
 	 * @param rsf
 	 */
-	public void addRefGenomePart(ReferenceSequenceFile rsf) {
+	public void addRefGenomePart(ReferenceSequenceFile rsf, long minSupport) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
-				if (tl.getSams().size()>0) {
-					tl.addRefSequence(rsf);
+				if(tl.getNrPartialAnchors()>=minSupport) {
+						tl.addRefSequence(rsf);
 				}
 					
 			}
@@ -312,7 +313,8 @@ public class TranslocationController {
         				//This has to be done via this method as the
         				//reverseComplement method from SAMRecord contains a bug
         				//that does not reverse the Cigar
-            			Translocation.reverseComplementSAMRecord(srec);
+            			//Translocation.reverseComplementSAMRecord(srec);
+            			srec.reverseComplement();
 
         				if(srec.getReadName().contentEquals(testName)) {
         					System.out.println("AFTER RCing");
@@ -342,6 +344,7 @@ public class TranslocationController {
 	                		System.err.println("launch analysis - checkpoint 2");
 	            		}
 	        		}
+	        		//TODO: explain this if statement
 	        		if (
 	        			((SALength == 6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true)))) ||
 	        			((SALength >6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true) && (sp.getChr().equals(getContigSecondSATag(srec))==true))))
@@ -356,7 +359,7 @@ public class TranslocationController {
 	    	        		if(srec.getReadString().contains("N")) {
 	    	        			Ncount++;
 	    	        		}
-	    	        		addTranslocation(srec, maxReadsPerTrans);	
+	    	        		addTranslocation(new SAMRecordWrap(srec), maxReadsPerTrans);	
 	        			}
 	        		}		       	
         		}
@@ -388,7 +391,7 @@ public class TranslocationController {
         System.out.println("Splitting T-DNA reads and finding minimal junction");
         addTDNASplit();
         System.out.println("Adding refGenomeParts");
-        addRefGenomePart(rsf);
+        addRefGenomePart(rsf, sp.getMinSupport());
         System.out.println("Added refGenomeParts");
         
         System.out.println("hashAllRealPositions");

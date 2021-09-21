@@ -56,11 +56,15 @@ public class GUIDESeqRun {
 		SamplePrimer sp = new SamplePrimer(options);
 		
 		System.out.println(options.printParameters());
+		long previousTime = System.currentTimeMillis();
         TranslocationController tc = new TranslocationController(sp);
         tc.testLBRB();
         tc.launchAnalysis(options.getMaxTranslocations(),options.getMaxReadsPerTrans(), options.getMaxReads());
         tc.print(bw, allEvents, (int)options.getMinSupport());
 		System.out.println("Output written to: "+out.getAbsolutePath());
+		long currentTime = System.currentTimeMillis();
+		double elapsedTime = (currentTime - previousTime) / 1000.0;
+		System.out.println("Time in seconds : " + elapsedTime);
 		try {
 			allEvents.close();
 			bw.close();

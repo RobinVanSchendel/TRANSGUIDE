@@ -1,5 +1,8 @@
 package data;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import htsjdk.samtools.CigarElement;
 import htsjdk.samtools.SAMRecord;
 
@@ -86,5 +89,28 @@ public class Utils {
 			}
 		}
 		return revCom.toString();
+	}
+	public static boolean cigarStringFollowsSMS(String cigarString) {
+		Pattern p = Pattern.compile("\\d*[S]\\d*[M]\\d*[S]");
+		Matcher m = p.matcher(cigarString);
+		boolean b = m.matches();
+		return b;
+	}
+	/**
+	 * Creates a stringbuffer with cigarstrings. If the length of "s" is larger than "size", return the part of the string from the start position until "size".
+	 * If the length is smaller than "size", add spaces to the end until that length has been reached. Then return the string plus those spaces. 
+	 * @param cigarString
+	 * @param size
+	 * @return
+	 */
+	public static String getString(String str, int size) {
+		StringBuffer s = new StringBuffer(str);
+		if(s.length()>size) {
+			return s.toString().substring(0, size);
+		}
+		while(s.length()<size) {
+			s.append(" ");
+		}
+		return s.toString();
 	}
 }
