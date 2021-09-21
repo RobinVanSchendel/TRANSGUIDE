@@ -31,9 +31,9 @@ public class Translocation {
 	private SamplePrimer sp;
 	private String warning;
 	private InsertionSolverTwoSides is;
-	private Consensus TDNAcons;
-	private Consensus TDNAfullcons;
-	private Consensus TDNAgencons;
+	private Consensus TDNAcons = null;
+	private Consensus TDNAfullcons = null;
+	private Consensus TDNAgencons = null;
 	private Consensus junctionMinimumcons;
 	private StringBuffer splitReads = new StringBuffer();
 	private String sampleMatchingDNA = "";
@@ -807,6 +807,9 @@ public class Translocation {
 
 	
 	private String getGenomicSequenceMostRepeated() {
+		if(TDNAgencons == null) {
+			System.err.println("Can't call getGenomicSequenceMostRepeated before splitTDNAReads is called");
+		}
 		if (this.TDNAgencons.size() != 0){
 		return this.TDNAgencons.getMostRepeatedString();
 		}
@@ -819,6 +822,9 @@ public class Translocation {
 	 * @return fraction of full T-DNA reads that contribute to the consensus
 	 */
 	private double getFractionHighestContributorToMinimumJunction(){
+		if(junctionMinimumcons == null) {
+			System.err.println("Can't call getFractionHighestContributorToMinimumJunction before splitTDNAReads is called");
+		}
 		if (this.junctionMinimumcons.size() != 0){
 			return junctionMinimumcons.getMostRepeatedStringFraction();
 		}
@@ -828,6 +834,9 @@ public class Translocation {
 	}
 	
 	private double getNrHighestContributorToMinimumJunction(){
+		if(junctionMinimumcons == null) {
+			System.err.println("Can't call getNrHighestContributorToMinimumJunction before splitTDNAReads is called");
+		}
 		if (this.junctionMinimumcons.size() != 0){
 			return junctionMinimumcons.getMostRepeatedStringNr();
 		}
