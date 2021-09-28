@@ -128,6 +128,8 @@ public class ConsolidateReads {
 			compressGZIP(outR2);
 			//delete large file now
 			outR2.delete();
+			System.out.println(outR1.getAbsolutePath());
+			System.out.println(outR2.getAbsolutePath());
 			
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
