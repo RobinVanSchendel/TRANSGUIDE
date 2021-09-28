@@ -42,31 +42,33 @@ public class Reads {
 			}
 			//get maxQuality per read
 			byte[] quals = new byte[(int) al.get(0).getLength()];
+			//get the consensus read
+			String read = c.getConsensusStringReplaceByN(0.8);
+			
 			for(int i=0;i<al.get(0).getLength();i++) {
+				char currentChar = read.charAt(i);
 				byte max = 0;
 				for(FastqRecord f: al) {
-					byte value = f.getQualitySequence().get(i).getQualityScore();
-					if(value>max) {
-						max = value;
+					char readChar = f.getNucleotideSequence().toString().charAt(i);
+					//only get the base quality for the nucleotide that matches the consensus
+					//N will very likely result in quality of 0 (=! in phred code)
+					if(currentChar == readChar) {
+						byte value = f.getQualitySequence().get(i).getQualityScore();
+						if(value>max) {
+							max = value;
+						}
 					}
 				}
 				quals[i] = max;
 			}
-			NucleotideSequence ns = new NucleotideSequenceBuilder().append(c.getConsensusStringReplaceByN(0.8)).build();
+			
+			NucleotideSequence ns = new NucleotideSequenceBuilder().append(read).build();
 			QualitySequence qs = new QualitySequenceBuilder().append(quals).build();
 			FastqRecord fqR1 = al.get(0).toBuilder()
 					.qualities(qs)
 					.basecalls(ns)
 					.build();
 			
-			//System.out.println(c.size());
-			//System.out.println();
-			//System.out.println(c.getConsensusStringReplaceByN(0.8));
-			//System.out.println();
-			//System.out.println(fqR1.getNucleotideSequence().toString());
-			//still think how to get the highest quality base
-			//FastqRecord fqR1 = al.get(0).toBuilder().
-			//System.exit(0);
 			return fqR1;
 		}
 		else {
