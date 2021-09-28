@@ -40,7 +40,7 @@ public class Translocation {
 	private String sampleNonMatchingDNA = "";
 	private boolean multipleEvents = false;
 	private int countLBWeird;
-	public static final String testName = "M02948:174:000000000-JBDYN:1:2118:12143:22583";
+	public static final String testName = "A00379:349:HM7WFDSXY:4:1223:26955:6433";
 	
 	
 	/**
@@ -460,7 +460,7 @@ public class Translocation {
 						}
 					}
 				}
-				if (!sr.getContigSecondSATagIsContig(sp.getChr())){
+				if (!sr.getContigSATagIsContig(sp.getChr())){
 					if (indexFirstS==indexLastS) {
 						if (indexFirstM < indexFirstS) {
 							if(sr.getReadName().contentEquals(testName)) {
