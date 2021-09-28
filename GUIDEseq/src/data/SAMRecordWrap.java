@@ -208,7 +208,7 @@ public class SAMRecordWrap{
 	public String getCigarString() {
 		return s.getCigarString();
 	}
-	private String getContigSATag() {
+	public String getContigSATag() {
 		String SATag = getSATag();
 		if(SATag != null) {
 			return SATag.split(",|;")[0];
@@ -216,7 +216,7 @@ public class SAMRecordWrap{
 		System.err.println("requested getContigSATag from read without SA");
 		return null;
 	}
-	private String getContigSecondSATag() {
+	public String getContigSecondSATag() {
 		String SATag = getSATag();
 		if(SATag != null) {
 			String[] split = SATag.split(",|;");
@@ -321,7 +321,7 @@ public class SAMRecordWrap{
 	public int getMappingQuality() {
 		return s.getMappingQuality();
 	}
-	public boolean getDuplicateReadFlag() {
+	public boolean isDuplicate() {
 		return s.getDuplicateReadFlag();
 	}
 	public boolean isSecondaryAlignment() {
