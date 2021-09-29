@@ -143,7 +143,7 @@ public class TranslocationController {
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					if(srec.getContig()!=null) {
-						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())  && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) {
+						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())  && srec.getFirstOfPairFlag()!=sp.isFirstOfPairFlag() && !srec.getContig().equals(sp.getChr())) {
 							SAMRecordWrap s = new SAMRecordWrap(srec);
 							tl.addSam(s);
 						}
