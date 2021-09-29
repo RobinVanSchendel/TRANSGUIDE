@@ -40,7 +40,7 @@ public class Translocation {
 	private String sampleNonMatchingDNA = "";
 	private boolean multipleEvents = false;
 	private int countLBWeird;
-	public static final String testName = "A00379:349:HM7WFDSXY:4:2642:1108:31344";
+	public static final String testName = TranslocationController.testName;
 	private ReferenceSequenceFile rsf;
 	
 	
