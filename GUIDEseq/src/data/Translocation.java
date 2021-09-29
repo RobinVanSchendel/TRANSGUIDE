@@ -658,7 +658,7 @@ public class Translocation {
 		    			reverseReads++;
 		    		}
 	    		}
-	    		if(sam.getContigSATagIsContig(sp.getChr())) {
+	    		else if(sam.getContigSATagIsContig(sp.getChr())) {
 	    			if(sam.isForwardSATag()) {
     					int pos = sam.getPosSATagEnd();
     					con.add(pos);
@@ -669,6 +669,18 @@ public class Translocation {
     					con.add(pos);
     					reverseReads++;
     				}
+	    		}
+	    		else if(sam.getContigSecondSATagIsContig(sp.getChr())) {
+	    			if(sam.isForwardSecondSATag()) {
+	    				int pos = sam.getPosSATagEnd2();
+	    				con.add(pos);
+	    				forwardReads++;
+	    			}
+	    			else {
+	    				int pos = sam.getPosSATag2();
+    					con.add(pos);
+    					reverseReads++;
+	    			}
 	    		}
 	    	}
 	    }
