@@ -27,7 +27,7 @@ public class TranslocationController {
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	boolean debug = true;
-	public static final String testName = "M02948:174:000000000-JBDYN:1:2118:12143:22583";
+	public static final String testName = "A00379:349:HM7WFDSXY:4:1250:15031:28902";
 	public static final String testPosition = "1:25672880";
 	
 	public TranslocationController(SamplePrimer sp) {
@@ -143,7 +143,7 @@ public class TranslocationController {
 				while(sri.hasNext()) {
 					SAMRecord srec = sri.next();
 					if(srec.getContig()!=null) {
-						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())) {
+						if(!isDuplicate(srec) && tl.containsRecord(srec.getReadName())  && (srec.getFirstOfPairFlag()==true) && (srec.getContig().equals(sp.getChr())==false)) {
 							SAMRecordWrap s = new SAMRecordWrap(srec);
 							tl.addSam(s);
 						}
