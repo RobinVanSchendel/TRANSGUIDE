@@ -198,7 +198,8 @@ public class TranslocationController {
 			System.out.println("no index available for this bam file. Please run samtools index "+sp.getFile());
 			System.exit(0);
 		}
-	    ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
+	    ReferenceSequenceFile rsfOrig = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
+	    BufferedReferenceSequenceFile rsf = new BufferedReferenceSequenceFile(rsfOrig);
 	    //SAMRecordIterator r = sr.iterator();
 	    String chr = sp.getChr();
 	    ReferenceSequence rs = rsf.getSequence(chr);
