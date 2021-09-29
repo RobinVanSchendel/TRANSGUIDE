@@ -29,6 +29,7 @@ public class TranslocationController {
 	boolean debug = true;
 	public static final String testName = "A00379:349:HM7WFDSXY:4:1250:15031:28902";
 	public static final String testPosition = "1:25672880";
+	ReferenceSequenceFile rsf = null;
 	
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
@@ -78,7 +79,7 @@ public class TranslocationController {
 			return nearest;
 		}
 		else {
-			Translocation tl = new Translocation(s, sp);
+			Translocation tl = new Translocation(s, sp, rsf);
 			if(s.getReadName().contentEquals(testName)) { 
 			System.out.println("addTranslocation - checkpoint1");}
 			//sometimes the sam is not added due to filtering of secondary alignments
@@ -178,7 +179,7 @@ public class TranslocationController {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
 				if(tl.getNrPartialAnchors()>=minSupport) {
-						tl.addRefSequence(rsf);
+						tl.addRefSequence();
 				}
 					
 			}

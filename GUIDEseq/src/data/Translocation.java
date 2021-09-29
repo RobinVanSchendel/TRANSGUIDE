@@ -41,6 +41,7 @@ public class Translocation {
 	private boolean multipleEvents = false;
 	private int countLBWeird;
 	public static final String testName = "A00379:349:HM7WFDSXY:4:2642:1108:31344";
+	private ReferenceSequenceFile rsf;
 	
 	
 	/**
@@ -48,10 +49,11 @@ public class Translocation {
 	 * @param s
 	 * @param sp
 	 */
-	public Translocation(SAMRecordWrap s, SamplePrimer sp) {
+	public Translocation(SAMRecordWrap s, SamplePrimer sp, ReferenceSequenceFile rsf) {
 		sams = new ArrayList<SAMRecordWrap>();
 		names = new HashMap<String, Integer>();
 		this.sp = sp;
+		this.rsf = rsf;
 		addSam(s);
 	}
 	
@@ -609,7 +611,6 @@ public class Translocation {
 	 * @return the sequence in the reference genome between "start" and "end"
 	 */
 	private String getGenomicSequenceRelative(int start, int end) {
-		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //SAMRecordIterator r = sr.iterator();
 	    String chr = this.getContigMate();
 	    int startPos = this.getRealPosition()+start;
@@ -633,7 +634,6 @@ public class Translocation {
 	    return part;
 	}
 	private String getTDNASequenceRelative(int start, int end) {
-		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //SAMRecordIterator r = sr.iterator();
 	    String chr = sp.getChr();
 	    
@@ -1213,7 +1213,7 @@ public class Translocation {
 	 * 
 	 * @param rsf
 	 */
-	public void addRefSequence(ReferenceSequenceFile rsf) {
+	public void addRefSequence() {
 		int start = -1;
 		int end = -1;
 		String genomicSequenceMostRepeated = getGenomicSequenceMostRepeated().toUpperCase();
