@@ -357,7 +357,8 @@ public class SAMRecordWrap{
 					return getPosSATagEnd();
 				}
 			}
-			//TODO: what is this?
+			//Sometimes the primary alignment and the second alignment is both on the T-DNA plasmid if there is a large templated filler matching the plasmid.
+			//in that case the tertiary alignment is on the genome, so it is there where you have to find the genomic position.
 			else {
 				if ((getSALength()>6) && !getContigSecondSATagIsContig(sp.getChr()) && getSASecondCigarLength() == 2) {
 					if (isForwardSecondSATag()) {

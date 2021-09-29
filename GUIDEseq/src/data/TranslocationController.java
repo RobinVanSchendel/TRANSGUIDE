@@ -303,8 +303,6 @@ public class TranslocationController {
     					}
     				}
         			NM0Count++;
-        			//TODO: is that also true for all 4 T-DNA/primer combinations?
-        			
         			//System.out.println(srec.getContig()+" "+srec.getReadNegativeStrandFlag()+" "+srec.getAlignmentStart()+" "+srec.getReadString());
         			
         			if(srec.getReadNegativeStrandFlag()==true) {
@@ -344,7 +342,8 @@ public class TranslocationController {
 	                		System.err.println("launch analysis - checkpoint 2");
 	            		}
 	        		}
-	        		//TODO: explain this if statement
+	        		//Checks if the record is mapped at all to the T-DNA plasmid.
+	        		//There may be instances where checking whether it starts with the primer isn't enough, when the match with the T-DNA is too short to be picked up by the mapper.
 	        		if (
 	        			((SALength == 6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true)))) ||
 	        			((SALength >6) && (!((srec.getContig().equals(sp.getChr())==true) && (sp.getChr().equals(getContigSATag(srec))==true) && (sp.getChr().equals(getContigSecondSATag(srec))==true))))
