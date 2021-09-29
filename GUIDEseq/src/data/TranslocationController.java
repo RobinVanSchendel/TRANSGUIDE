@@ -33,6 +33,8 @@ public class TranslocationController {
 	
 	public TranslocationController(SamplePrimer sp) {
 		this.sp = sp;
+		ReferenceSequenceFile rsfOrig = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
+	    rsf = new BufferedReferenceSequenceFile(rsfOrig);
 	}
 	
 	private Translocation getNearestTranslocation(SAMRecordWrap s) {
@@ -175,7 +177,7 @@ public class TranslocationController {
 	 * 
 	 * @param rsf
 	 */
-	public void addRefGenomePart(ReferenceSequenceFile rsf, long minSupport) {
+	public void addRefGenomePart(long minSupport) {
 		for(String key: trans.keySet()){
 			for(Translocation tl: trans.get(key)) {
 				if(tl.getNrPartialAnchors()>=minSupport) {
@@ -199,8 +201,6 @@ public class TranslocationController {
 			System.out.println("no index available for this bam file. Please run samtools index "+sp.getFile());
 			System.exit(0);
 		}
-	    ReferenceSequenceFile rsfOrig = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
-	    BufferedReferenceSequenceFile rsf = new BufferedReferenceSequenceFile(rsfOrig);
 	    //SAMRecordIterator r = sr.iterator();
 	    String chr = sp.getChr();
 	    ReferenceSequence rs = rsf.getSequence(chr);
@@ -392,7 +392,7 @@ public class TranslocationController {
         System.out.println("Splitting T-DNA reads and finding minimal junction");
         addTDNASplit();
         System.out.println("Adding refGenomeParts");
-        addRefGenomePart(rsf, sp.getMinSupport());
+        addRefGenomePart(sp.getMinSupport());
         System.out.println("Added refGenomeParts");
         
         System.out.println("hashAllRealPositions");
@@ -612,7 +612,6 @@ public class TranslocationController {
 	 * Finds and prints the locations of the LB and RB nicks
 	 */
 	public void testLBRB() {
-		ReferenceSequenceFile rsf = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    //System.out.println(rsf.isIndexed());
 		//System.out.println("["+options.getRefFile()+"]");
 	    String chr = sp.getChr();
