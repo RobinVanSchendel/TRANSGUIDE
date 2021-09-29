@@ -40,7 +40,7 @@ public class Translocation {
 	private String sampleNonMatchingDNA = "";
 	private boolean multipleEvents = false;
 	private int countLBWeird;
-	public static final String testName = "A00379:349:HM7WFDSXY:4:1223:26955:6433";
+	public static final String testName = "A00379:349:HM7WFDSXY:4:2642:1108:31344";
 	
 	
 	/**
@@ -387,7 +387,7 @@ public class Translocation {
 					//System.out.println("not taking anything when read not mapped on T-DNA");
 				}
 				else {
-					if ((SALength>6) && sr.getContigSATagIsContig(sp.getChr()) && sr.getSASecondCigarLength()==2 ) {
+					if ((SALength>6) && sr.getContigSecondSATagIsContig(sp.getChr()) && sr.getSASecondCigarLength()==2 ) {
 						String SACigar2 = SATag.split(",|;")[9];
 						int indexFirstM2 = SACigar2.indexOf("M");
 						int indexFirstS2 = SACigar2.indexOf("S");
