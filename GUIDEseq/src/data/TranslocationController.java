@@ -26,7 +26,7 @@ public class TranslocationController {
 	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA"; //this is the default one
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
-	boolean debug = true;
+	private boolean debug = false;
 	public static final String testName = "A00379:349:HM7WFDSXY:4:1250:15031:28902";
 	public static final String testPosition = "1:25672880";
 	ReferenceSequenceFile rsf = null;
@@ -35,6 +35,7 @@ public class TranslocationController {
 		this.sp = sp;
 		ReferenceSequenceFile rsfOrig = ReferenceSequenceFileFactory.getReferenceSequenceFile(sp.getRef());
 	    rsf = new BufferedReferenceSequenceFile(rsfOrig);
+	    this.debug = sp.debug();
 	}
 	
 	private Translocation getNearestTranslocation(SAMRecordWrap s) {
@@ -161,6 +162,7 @@ public class TranslocationController {
 				}
 			}
 		}
+		System.out.println("Finished processing "+count+" mates ");
 		System.out.println("Found "+duplicates+" duplicate mates (should be >0)");
 	}
 

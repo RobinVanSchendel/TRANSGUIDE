@@ -38,6 +38,7 @@ public class SamplePrimer {
 	private String run;
 	private boolean UMI;
 	private MyOptions options;
+	private boolean debug = false;
 	
 	public SamplePrimer(String sample, String primer, File ref, String chr, boolean LB, String DNAsample, String genotype, String ecotype, String P5, String run, boolean uMI) {
 		this.sample = sample;
@@ -68,6 +69,7 @@ public class SamplePrimer {
 		setFile(options.getBam());
 		System.out.println("SETTING" +options.getP5());
 		System.out.println("SETTING" +this.isFirstOfPairFlag());
+		this.debug = options.getDebug();
 	}
 	public static SamplePrimer parse(String line) {
 		String[] parts = line.split("\t");
@@ -234,5 +236,8 @@ public class SamplePrimer {
 	}
 	public boolean hasUMI() {
 		return UMI;
+	}
+	public boolean debug() {
+		return debug ;
 	}
 }

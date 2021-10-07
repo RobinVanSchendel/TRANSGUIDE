@@ -196,6 +196,11 @@ public class GUIDESeqRun {
 				.build();
 		o.addOption(run);
 		
+		Option debug = Option.builder("debug")
+				.desc("run in debug mode")
+				.build();
+		o.addOption(debug);
+		
 		
 		return o;
 	}

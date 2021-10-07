@@ -257,4 +257,11 @@ private String chr;
 		}
 		return "";
 	}
+
+	public boolean getDebug() {
+		if(cmd.hasOption("debug")) {
+			return true;
+		}
+		return false;
+	}
 }
