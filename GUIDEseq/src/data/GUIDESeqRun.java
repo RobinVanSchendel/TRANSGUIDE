@@ -188,6 +188,14 @@ public class GUIDESeqRun {
 				.build();
 		o.addOption(e);
 		
+		Option run = Option.builder("u")
+				.longOpt("run")
+				.hasArg()
+				.argName("STRING")
+				.desc("The sequence run")
+				.build();
+		o.addOption(run);
+		
 		
 		return o;
 	}

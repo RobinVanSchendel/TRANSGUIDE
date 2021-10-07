@@ -250,4 +250,11 @@ private String chr;
 		// TODO Auto-generated method stub
 		return false;
 	}
+
+	public String getRun() {
+		if(cmd.hasOption("run")) {
+			return cmd.getOptionValue("run");
+		}
+		return "";
+	}
 }

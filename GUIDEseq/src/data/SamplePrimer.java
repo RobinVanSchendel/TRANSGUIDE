@@ -64,6 +64,7 @@ public class SamplePrimer {
 		this.ecotype = options.getEcotype();
 		this.P5 = options.getP5();
 		this.UMI = options.isUMI();
+		this.run = options.getRun();
 		setFile(options.getBam());
 		System.out.println("SETTING" +options.getP5());
 		System.out.println("SETTING" +this.isFirstOfPairFlag());
