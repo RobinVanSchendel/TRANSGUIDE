@@ -338,9 +338,8 @@ public class Translocation {
 		if (sr.getFirstOfPairFlag()== sp.isFirstOfPairFlag())  {
 			CigarElement ce1 = sr.getCigar().getCigarElement(0);
 			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			String SATag = (String) sr.getAttribute("SA");
-    		String[] SAList = SATag.split(",|;");
-    		int SALength = SAList.length;
+			String SATag = sr.getSATag();
+    		int SALength = sr.getSALength();
     		String SACigar = SATag.split(",|;")[3];
     		int indexFirstM = SACigar.indexOf("M");
 			int indexFirstS = SACigar.indexOf("S");
@@ -420,9 +419,8 @@ public class Translocation {
 		if (sr.getFirstOfPairFlag()== sp.isFirstOfPairFlag())  {
 			CigarElement ce1 = sr.getCigar().getCigarElement(0);
 			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			String SATag = (String) sr.getAttribute("SA");
-    		String[] SAList = SATag.split(",|;");
-    		int SALength = SAList.length;
+			String SATag = sr.getSATag();
+    		int SALength = sr.getSALength();
     		String SACigar = SATag.split(",|;")[3];
     		int indexFirstM = SACigar.indexOf("M");
 			int indexFirstS = SACigar.indexOf("S");
@@ -436,7 +434,7 @@ public class Translocation {
 				System.out.println("getgenomicpart - checkpoint1");
 			}
 			if (sr.getContig().equals(sp.getChr())==true) {
-				if (sr.getContigSATagIsContig(sp.getChr()) && (SALength==12) && !sr.getContigSecondSATagIsContig(sp.getChr())) {
+				if (sr.getContigSATagIsContig(sp.getChr()) && (SALength>=12) && !sr.getContigSecondSATagIsContig(sp.getChr())) {
 					if(sr.getReadName().contentEquals(testName)) {
 						System.out.println("getgenomicpart - checkpoint2");
 					}
@@ -690,7 +688,21 @@ public class Translocation {
 	    }
 	    int startPos = pos+start;
 		int endPos = pos+end;
-		String seq = rs.getBaseString().substring(startPos, endPos);
+		//System.out.println(startPos+" : "+endPos);
+		//if within plasmid add end or beginning as needed
+		String preSeq = "";
+		String postSeq = "";
+		if(startPos<0) {
+			int startPosMod = rs.length()+startPos;
+			preSeq = rs.getBaseString().substring(startPosMod);
+			startPos = 0;
+		}
+		if(endPos>rs.length()) {
+			int endPosMod = endPos-rs.length();
+			postSeq = rs.getBaseString().substring(0,endPosMod);
+			endPos = rs.length();
+		}
+		String seq = preSeq+rs.getBaseString().substring(startPos, endPos)+postSeq;
 		if(reverseReads>forwardReads) {
 			seq = Utils.reverseComplement(seq);
 		}
@@ -1110,7 +1122,7 @@ public class Translocation {
 				else {
 					badreads.add(sr.getReadName());
 					if(sr.getReadName().equals(testName)) { 
-						System.err.println("The read "+testName+" will be removed because the genomic part is null or shorter than 15 bp");
+						System.err.println("The read "+testName+" will be removed because the genomic part is null or shorter than 15 bp: "+readPart);
 						}
 				}
 			}
@@ -1336,7 +1348,7 @@ public class Translocation {
 	public void setMultipleEvents() {
 		this.multipleEvents = true;
 	}
-	public boolean removeSam(SAMRecordWrap srec) {
+	private boolean removeSam(SAMRecordWrap srec) {
 		return this.removeSam(srec.getReadName());
 	}
 
