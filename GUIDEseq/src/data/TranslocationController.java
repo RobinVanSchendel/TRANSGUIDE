@@ -81,7 +81,7 @@ public class TranslocationController {
 			}
 			return nearest;
 		}
-		else {
+		else if (s.getPosition2(sp)!=-1){
 			Translocation tl = new Translocation(s, sp, rsf);
 			if(s.getReadName().contentEquals(testName)) { 
 			System.out.println("addTranslocation - checkpoint1");}
@@ -104,6 +104,8 @@ public class TranslocationController {
 				//System.out.println(tl.getContigMate()+" has 0 supporting reads");
 			}
 		}
+		if(s.getReadName().contentEquals(testName)) { 
+			System.err.println("addTranslocation - no translocation added");}
 		return null;
 	}
     
