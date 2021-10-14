@@ -19,7 +19,6 @@ public class Translocation {
 	private static final int minSizeInsertionSolver = 6;
 	public static final int ANCHORLENGTH = 50;
 	public static final int MINMAPPINGQUALITY = 50;
-	private static final String adapterSeq = "AGATCGGAAGAGCG"; //temporarily only 14 bp of the adapter. Later methods below should take the part they need from the full adapter sequence
 	private ArrayList<SAMRecordWrap> sams;
 	private HashMap<String, Integer> names;
 	private String filler = "";
@@ -417,148 +416,307 @@ public class Translocation {
 	}
 	private static String getGenomicPart(SAMRecordWrap sr, SamplePrimer sp) {
 		if (sr.getFirstOfPairFlag()== sp.isFirstOfPairFlag())  {
-			CigarElement ce1 = sr.getCigar().getCigarElement(0);
-			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			String SATag = sr.getSATag();
-    		int SALength = sr.getSALength();
-    		String SACigar = SATag.split(",|;")[3];
-    		int indexFirstM = SACigar.indexOf("M");
-			int indexFirstS = SACigar.indexOf("S");
-			int indexLastS = SACigar.lastIndexOf("S");
-			//don't allow info beyond 150bp, but allow shorter.
-			int readlength = 150;
-			if (sr.getReadString().length() <150) {
-				readlength = sr.getReadString().length();
-			}
+			//general variables
+			int CigarLength = sr.getCigarLength();
+			CigarElement CigarFirstElement = sr.getCigar().getCigarElement(0);
+			CigarElement CigarLastElement = sr.getCigar().getCigarElement(CigarLength-1);
+			String SATag = (String) sr.getAttribute("SA");
+			String[] SAList = SATag.split(",|;");
+			int SALength = SAList.length;
+			int readLength = sr.getReadString().length();
+			//variables pertaining to the first SAtag alignment
+			String SA1Cigar = SATag.split(",|;")[3];
+			String SA1Strand = SATag.split(",|;")[2];
+			int indexSA1FirstM = SA1Cigar.indexOf("M");
+			int indexSA1FirstS = SA1Cigar.indexOf("S");
+			int indexSA1LastS = SA1Cigar.lastIndexOf("S");
+			int indexSA1LastM = SA1Cigar.lastIndexOf("M");
+			String[] SA1CigarElements = SA1Cigar.split("S|D|M|I|H");
+			int SA1Length = SA1CigarElements.length;
+			int SA1LastLength = Integer.valueOf(SA1CigarElements[SA1Length-1]);
+			
 			if(sr.getReadName().contentEquals(testName)) {
 				System.out.println("getgenomicpart - checkpoint1");
 			}
-			if (sr.getContig().equals(sp.getChr())==true) {
-				if (sr.getContigSATagIsContig(sp.getChr()) && (SALength>=12) && !sr.getContigSecondSATagIsContig(sp.getChr())) {
+			if (!sr.getReadNegativeStrandFlag()) { //if the read is positive, the genomic part should be an M at the end of the CIGAR
+				if (CigarLastElement.getOperator().equals(CigarOperator.M)){ 
 					if(sr.getReadName().contentEquals(testName)) {
-						System.out.println("getgenomicpart - checkpoint2");
+						System.out.println("Exit 1: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
 					}
-					String SACigar2 = SATag.split(",|;")[9];
-		    		int indexFirstM2 = SACigar2.indexOf("M");
-					int indexFirstS2 = SACigar2.indexOf("S");
-					int indexLastS2 = SACigar2.lastIndexOf("S");
-					if ((indexFirstM2 < indexFirstS2) && (indexFirstS2==indexLastS2)) {
-						int mLength = Integer.parseInt(SACigar2.substring(0, indexFirstM2));
-						if (sr.getReadString().length()-mLength < readlength){
-							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
-							return genomicPart;
-						}
-					}
-					if ((indexFirstM2 > indexFirstS2) && (indexFirstS2==indexLastS2)) {
-						if(sr.getReadName().contentEquals(testName)) {
-							System.out.println("getgenomicpart - checkpoint3");
-						}
-						int mLength = Integer.parseInt(SACigar2.substring(indexFirstS2+1, indexFirstM2));
-						if (sr.getReadString().length()-mLength < readlength){
-							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
-							return genomicPart;
-						}
-					}
+					int elementLength = CigarLastElement.getLength(); 
+					String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+					return genomicPart;
 				}
-				if (!sr.getContigSATagIsContig(sp.getChr())){
-					if (indexFirstS==indexLastS) {
-						if (indexFirstM < indexFirstS) {
+				else {//if CIGAR is MS 
+					if (SA1Strand.equals("+")){
+						if (indexSA1LastM > indexSA1LastS) {
 							if(sr.getReadName().contentEquals(testName)) {
-								System.out.println("getgenomicpart - checkpoint4");
+								System.out.println("Exit 2: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
 							}
-							int mLength = Integer.parseInt(SACigar.substring(0, indexFirstM));
-							if (sr.getReadString().length()-mLength < readlength){
-								String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
-								return genomicPart;
-							}
+							int elementLength = SA1LastLength;
+							String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+							return genomicPart;	
 						}
-						if (indexFirstS < indexFirstM) {
-							if(sr.getReadName().contentEquals(testName)) {
-								System.out.println("getgenomicpart - checkpoint5");
+						else { //if SA1 is MS
+							if (SALength >6) {
+								String SA2Cigar = SATag.split(",|;")[9];
+								String SA2Strand = SATag.split(",|;")[8];
+								int indexSA2FirstM = SA2Cigar.indexOf("M");
+								int indexSA2FirstS = SA2Cigar.indexOf("S");
+								int indexSA2LastS = SA2Cigar.lastIndexOf("S");
+								int indexSA2LastM = SA2Cigar.lastIndexOf("M");
+								String[] SA2CigarElements = SA2Cigar.split("S|D|M|I|H");
+								int SA2Length = SA2CigarElements.length;
+								int SA2LastLength = Integer.valueOf(SA2CigarElements[SA2Length-1]);
+								if (SA2Strand.equals("+")){
+									if (indexSA2LastM > indexSA2LastS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 3: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = SA2LastLength;
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is MS
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 4: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+								else {//SA2 is -
+									if (indexSA2FirstM < indexSA2FirstS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 5: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = Integer.parseInt(SA2Cigar.substring(0, indexSA2FirstM));
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is SM
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 6: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
 							}
-							int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
-							if (sr.getReadString().length()-mLength < readlength){
-								String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
-								return genomicPart;
+							else {//if SA is not longer than 6
+								if(sr.getReadName().contentEquals(testName)) {
+									System.err.println("Exit 7: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+								}
+								return null;
 							}
 						}
 					}
-					else if (sr.getReadString().contains(adapterSeq) && (Utils.cigarStringFollowsSMS(SACigar))) {
-						if(sr.getReadName().contentEquals(testName)) {
-							System.out.println("getgenomicpart - checkpoint6");
+					else { //if the SA1 is - 
+						if (indexSA1FirstM < indexSA1FirstS) {
+							if(sr.getReadName().contentEquals(testName)) {
+								System.out.println("Exit 8: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+							}
+							int elementLength = Integer.parseInt(SA1Cigar.substring(0, indexSA1FirstM));
+							String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+							return genomicPart;	
 						}
-						int adapterLength = sr.getReadString().length()-sr.getReadString().indexOf(adapterSeq);
-						int s1Length = Integer.parseInt(SACigar.substring(0, indexFirstS));
-						int s2Length = Integer.parseInt(SACigar.substring(indexFirstM+1, indexLastS));
-						int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
-						if (sr.isForwardSATag() && adapterLength==s2Length) {
-							String genomicPart = sr.getReadString().substring(s1Length, s1Length+mLength);
-							return genomicPart;
-						}
-						if (!sr.isForwardSATag() && adapterLength==s1Length) {
-							String genomicPart = sr.getReadString().substring(s1Length, s1Length+mLength);
-							return genomicPart;
+						else { //if SA1 is SM
+							if (SALength >6) {
+								String SA2Cigar = SATag.split(",|;")[9];
+								String SA2Strand = SATag.split(",|;")[8];
+								int indexSA2FirstM = SA2Cigar.indexOf("M");
+								int indexSA2FirstS = SA2Cigar.indexOf("S");
+								int indexSA2LastS = SA2Cigar.lastIndexOf("S");
+								int indexSA2LastM = SA2Cigar.lastIndexOf("M");
+								String[] SA2CigarElements = SA2Cigar.split("S|D|M|I|H");
+								int SA2Length = SA2CigarElements.length;
+								int SA2LastLength = Integer.valueOf(SA2CigarElements[SA2Length-1]);
+								if (SA2Strand.equals("+")){
+									if (indexSA2LastM > indexSA2LastS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 9: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = SA2LastLength;
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is MS
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 10: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+								else {//SA2 is -
+									if (indexSA2FirstM < indexSA2FirstS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 11: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = Integer.parseInt(SA2Cigar.substring(0, indexSA2FirstM));
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is SM
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 12: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+							}
+							else {//if SA is not longer than 6
+								if(sr.getReadName().contentEquals(testName)) {
+									System.err.println("Exit 13: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+								}
+								return null;
+							}
 						}
 					}
 				}
 			}
-			if (!sr.getContig().equals(sp.getChr())) {
-				if(sr.getReadName().contentEquals(testName)) {
-					System.out.println("getgenomicpart - checkpoint7");
-				}
-				if (sr.getCigarLength()==2) {
+			else { //if read is negative
+				if (CigarFirstElement.getOperator().equals(CigarOperator.M)){ 
 					if(sr.getReadName().contentEquals(testName)) {
-						System.out.println("getgenomicpart - checkpoint8");
+						System.out.println("Exit 14: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
 					}
-					if ((ce1.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==true))) {
-						if(sr.getReadName().contentEquals(testName)) {
-							System.out.println("getgenomicpart - checkpoint9a");
-						}
-						int mLength = ce1.getLength();
-						if (sr.getReadString().length()-mLength < readlength){
-							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
+					int elementLength = CigarFirstElement.getLength(); 
+					String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+					return genomicPart;
+				}
+				else {//if CIGAR is SM 
+					if (SA1Strand.equals("+")){
+						if (indexSA1LastM > indexSA1LastS) {
 							if(sr.getReadName().contentEquals(testName)) {
-								System.out.println("getgenomicpart - checkpoint9b -: " +genomicPart);
+								System.out.println("Exit 15: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
 							}
-							return genomicPart;
-							
-							
+							int elementLength = SA1LastLength;
+							String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+							return genomicPart;	
+						}
+						else { //if SA1 is MS
+							if (SALength >6) {
+								String SA2Cigar = SATag.split(",|;")[9];
+								String SA2Strand = SATag.split(",|;")[8];
+								int indexSA2FirstM = SA2Cigar.indexOf("M");
+								int indexSA2FirstS = SA2Cigar.indexOf("S");
+								int indexSA2LastS = SA2Cigar.lastIndexOf("S");
+								int indexSA2LastM = SA2Cigar.lastIndexOf("M");
+								String[] SA2CigarElements = SA2Cigar.split("S|D|M|I|H");
+								int SA2Length = SA2CigarElements.length;
+								int SA2LastLength = Integer.valueOf(SA2CigarElements[SA2Length-1]);
+								if (SA2Strand.equals("+")){
+									if (indexSA2LastM > indexSA2LastS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 16: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = SA2LastLength;
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is MS
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 17: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+								else {//SA2 is -
+									if (indexSA2FirstM < indexSA2FirstS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 18: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = Integer.parseInt(SA2Cigar.substring(0, indexSA2FirstM));
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is SM
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 19: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+							}
+							else {//if SA is not longer than 6
+								if(sr.getReadName().contentEquals(testName)) {
+									System.err.println("Exit 20: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+								}
+								return null;
+							}
 						}
 					}
-					if ((ce2.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==false))) {
-						if(sr.getReadName().contentEquals(testName)) {
-							System.out.println("getgenomicpart - checkpoint10");
+					else { //if the SA1 is - 
+						if (indexSA1FirstM < indexSA1FirstS) {
+							if(sr.getReadName().contentEquals(testName)) {
+								System.out.println("Exit 21: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+							}
+							int elementLength = Integer.parseInt(SA1Cigar.substring(0, indexSA1FirstM));
+							String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+							return genomicPart;	
 						}
-						int mLength = ce2.getLength();
-						if (sr.getReadString().length()-mLength < readlength){
-							String genomicPart = sr.getReadString().substring(sr.getReadString().length()-mLength, readlength);
-							return genomicPart;
+						else { //if SA1 is SM
+							if (SALength >6) {
+								String SA2Cigar = SATag.split(",|;")[9];
+								String SA2Strand = SATag.split(",|;")[8];
+								int indexSA2FirstM = SA2Cigar.indexOf("M");
+								int indexSA2FirstS = SA2Cigar.indexOf("S");
+								int indexSA2LastS = SA2Cigar.lastIndexOf("S");
+								int indexSA2LastM = SA2Cigar.lastIndexOf("M");
+								String[] SA2CigarElements = SA2Cigar.split("S|D|M|I|H");
+								int SA2Length = SA2CigarElements.length;
+								int SA2LastLength = Integer.valueOf(SA2CigarElements[SA2Length-1]);
+								if (SA2Strand.equals("+")){
+									if (indexSA2LastM > indexSA2LastS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 22: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" has been found");
+										}
+										int elementLength = SA2LastLength;
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is MS
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 23: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+								else {//SA2 is -
+									if (indexSA2FirstM < indexSA2FirstS) {
+										if(sr.getReadName().contentEquals(testName)) {
+											System.out.println("Exit 24: getgenomicpart - checkpoint 8");
+										}
+										int elementLength = Integer.parseInt(SA2Cigar.substring(0, indexSA2FirstM));
+										String genomicPart = sr.getReadString().substring(readLength-elementLength, readLength);//check whether exact right pos
+										return genomicPart;	
+									}
+									else {//if SA2 is SM
+										if(sr.getReadName().contentEquals(testName)) {
+											System.err.println("Exit 25: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+										}
+										return null;
+									}
+								}
+							}
+							else {//if SA is not longer than 6
+								if(sr.getReadName().contentEquals(testName)) {
+									System.err.println("Exit 26: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+								}
+								return null;
+							}
 						}
 					}
 				}
-				//if there is no adapter, then the filler likely has a longer genomic piece than the genomic end itself, and then the sequence is not useable.
-				if ((sr.getCigarLength()==3) && (sr.getReadString().contains(adapterSeq))) {
-					if(sr.getReadName().contentEquals(testName)) {
-						System.out.println("getgenomicpart - checkpoint11");
-					}
-					int adapterLength = sr.getReadString().length()-sr.getReadString().indexOf(adapterSeq);
-					CigarElement ce3 = sr.getCigar().getCigarElement(2);
-					if ((ce2.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==true)) && (ce1.getLength()==adapterLength)) {
-						String genomicPart = sr.getReadString().substring(ce1.getLength(), ce1.getLength()+ce2.getLength());
-						return genomicPart;		
-					}
-					if ((ce2.getOperator().equals(CigarOperator.M) && (sr.getReadNegativeStrandFlag()==false)) && (ce3.getLength()==adapterLength)) {
-						String genomicPart = sr.getReadString().substring(ce1.getLength(), ce1.getLength()+ce2.getLength());
-						return genomicPart;	
-					}
-				}
+				
 			}
 		}
-		if(sr.getReadName().contentEquals(testName)) { 
-			System.err.println("The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+		else {
+			if(sr.getReadName().contentEquals(testName)) {
+				System.err.println("Exit 27: The genomic part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
+			}
+			return null;
 		}
-		return null;
 	}
+		
+	
 	private boolean getFillerIsTemplated(int start, int end, int maxTries) {
 		if(this.isOK() && this.getFiller().length()>=minSizeInsertionSolver){
 			//there was a bug here if the size was too small
