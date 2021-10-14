@@ -39,22 +39,22 @@ public class TranslocationController {
 	}
 	
 	private Translocation getNearestTranslocation(SAMRecordWrap s) {
-		int pos = s.getPosition2(sp);
-		if (pos!=-1) {  //filter for faulty positions
+		Position p = s.getPosition2(sp);
+		if (p!=null) {  //filter for faulty positions
 			Translocation nearest = null;
 			int minDis = Integer.MAX_VALUE;
-			if(trans.get(s.getMateReferenceName()) == null) {
+			if(trans.get(p.getChr()) == null) {
 				return null;
 			}
-			if (sp.getChr().equals(s.getMateReferenceName())==true) {
+			if (sp.getChr().equals(p.getChr())==true) {
 				if(s.getReadName().contentEquals(testName)) { 
 					System.err.println("Mate is primarily aligned to the plasmid, nearest translocation will be null");}
 				return null;
 			}
-			for(Translocation tl: trans.get(s.getMateReferenceName())) {
+			for(Translocation tl: trans.get(p.getChr())) {
 				if(tl.isForward() != s.getMateNegativeStrandFlag()) {
 					int tempPos = tl.getPosition();
-					int distance = Math.abs(pos-tempPos);
+					int distance = Math.abs(p.getPosition()-tempPos);
 					if(distance<minDis) {
 						minDis = distance;
 						nearest = tl; 
@@ -86,16 +86,19 @@ public class TranslocationController {
 			if(s.getReadName().contentEquals(testName)) { 
 			System.out.println("addTranslocation - checkpoint1");}
 			//sometimes the sam is not added due to filtering of secondary alignments
-			if((tl.getNrSupportingReads()>0) && (sp.getChr().equals(s.getMateReferenceName())==false)) {
-				ArrayList<Translocation> al = trans.get(s.getMateReferenceName());
-				if(al==null) {
-					al = new ArrayList<Translocation>();
-					trans.put(s.getMateReferenceName(), al);
+			if(tl.getNrSupportingReads()>0) {
+				Position p = s.getPosition2(sp);
+				if(p!=null) {
+					ArrayList<Translocation> al = trans.get(p.getChr());
+					if(al==null) {
+						al = new ArrayList<Translocation>();
+						trans.put(p.getChr(), al);
+					}
+					al.add(tl);
+					if(s.getReadName().contentEquals(testName)) { 
+						System.out.println("addTranslocation - checkpoint2");}
+					return tl;
 				}
-				al.add(tl);
-				if(s.getReadName().contentEquals(testName)) { 
-					System.out.println("addTranslocation - checkpoint2");}
-				return tl;
 			}
 			else {
 				//System.out.println(tl.getContigMate()+" has 0 supporting reads");

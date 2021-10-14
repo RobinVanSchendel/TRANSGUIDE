@@ -11,6 +11,7 @@ import htsjdk.samtools.SAMRecord;
 public class SAMRecordWrap{
 	private static final int ANCHORLENGTH = Translocation.ANCHORLENGTH;
 	private static final int MINMAPPINGQUALITY = Translocation.MINMAPPINGQUALITY;
+	private Position pos = null;
 	SAMRecord s;
 	public SAMRecordWrap(SAMRecord s) {
 		this.s = s;
@@ -312,9 +313,6 @@ public class SAMRecordWrap{
 		System.err.println("requested getPosSATag2 from read without SA");
 		return -1;
 	}
-	public String getMateReferenceName() {
-		return s.getMateReferenceName();
-	}
 	public boolean getMateNegativeStrandFlag() {
 		return s.getMateNegativeStrandFlag();
 	}
@@ -339,38 +337,45 @@ public class SAMRecordWrap{
 	 * @param sp
 	 * @return a chromosomal position integer. 
 	 */
-	public int getPosition2(SamplePrimer sp) {
+	public Position getPosition2(SamplePrimer sp) {
+		if(this.pos!=null) {
+			return pos;
+		}
+		
 		if (!getContig().equals(sp.getChr()) && s.getCigarLength()==2) {
 			if (s.getReadNegativeStrandFlag()==true){
-				return s.getAlignmentEnd();
+				pos = new Position(s.getContig(),s.getAlignmentEnd());
 			}
 			if (s.getReadNegativeStrandFlag()==false){
-				return s.getAlignmentStart();
+				pos = new Position(s.getContig(),s.getAlignmentStart());
 			}
+			return pos;
 		}
 		else {
 			if (!getContigSATagIsContig(sp.getChr()) && getSACigarLength()==2) {
 				if (isForwardSATag()) {
-					return getPosSATag();
+					pos = new Position(this.getContigSATag(),getPosSATag());
 				}
 				else if (!isForwardSATag()) {
-					return getPosSATagEnd();
+					pos = new Position(this.getContigSATag(),getPosSATagEnd());
 				}
+				return pos;
 			}
 			//Sometimes the primary alignment and the second alignment is both on the T-DNA plasmid if there is a large templated filler matching the plasmid.
 			//in that case the tertiary alignment is on the genome, so it is there where you have to find the genomic position.
 			else {
 				if ((getSALength()>6) && !getContigSecondSATagIsContig(sp.getChr()) && getSASecondCigarLength() == 2) {
 					if (isForwardSecondSATag()) {
-						return getPosSATag2();
+						pos = new Position(this.getContigSecondSATag(),getPosSATag2()); 
 					}
 					else if (!isForwardSecondSATag()) {
-						return getPosSATagEnd2();
+						pos = new Position(this.getContigSecondSATag(),getPosSATagEnd2());
 					}
+					return pos;
 				}
 			}
 		}
-		return -1;
+		return null;
 	}
 	public String getAlignmentLocation() {
 		return this.getContig()+":"+this.getAlignmentStart()+"-"+this.getAlignmentEnd()+" ("+this.getReadNegativeStrandFlag()+")";

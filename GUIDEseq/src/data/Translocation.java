@@ -1112,12 +1112,10 @@ public class Translocation {
 	public String getContigMate() {
 		if(getNrSupportingReads()>0) {
 			for(SAMRecordWrap s: sams) {
-				if(!s.getMateReferenceName().equals(sp.getChr())) {
-					return s.getMateReferenceName();
+				Position p = s.getPosition2(sp);
+				if(p!=null) {
+					return p.getChr();
 				}
-			}
-			for(SAMRecordWrap s: sams) {
-				return s.getMateReferenceName();
 			}
 		}
 		return null;
@@ -1148,9 +1146,9 @@ public class Translocation {
 		ArrayList<Integer> positions = new ArrayList<Integer>();
 		for(SAMRecordWrap s:sams) {
 			if(s.isStartRead(sp)) {
-				int position=s.getPosition2(sp);
-				if (position!=-1) {
-					positions.add(position);
+				Position p = s.getPosition2(sp);
+				if (p!=null) {
+					positions.add(p.getPosition());
 				}
 			}
 		}
@@ -1179,13 +1177,16 @@ public class Translocation {
 		return sams;
 	}
 	/**
-	 * @return chromosomal position integer of the first record in "sams"
+	 * @return chromosomal position integer of the first record that returns a Position object in "sams"
 	 */
 	public int getPosition() {
-		//String consensus = getCigarString();
-		return sams.get(0).getPosition2(sp);
-		//found a bug here!
-		//return sams.get(0).getMateAlignmentStart();
+		for(SAMRecordWrap s: sams) {
+			Position p = s.getPosition2(sp);
+			if(p!=null) {
+				return p.getPosition();
+			}
+		}
+		return -1;
 	}
 	
 	public void splitTDNAReads() {
