@@ -75,30 +75,28 @@ public class TranslocationController {
 	}
 	public Translocation addTranslocation(SAMRecordWrap s, int maxReads) {
 		Translocation nearest = getNearestTranslocation(s);
+		Position p = s.getPosition2(sp);
 		if(nearest !=null) {
 			if(nearest.getSams().size()<maxReads) {
 				nearest.addSam(s);
 			}
 			return nearest;
 		}
-		else if (s.getPosition2(sp)!=-1){
+		else if (p!=null){
 			Translocation tl = new Translocation(s, sp, rsf);
 			if(s.getReadName().contentEquals(testName)) { 
 			System.out.println("addTranslocation - checkpoint1");}
 			//sometimes the sam is not added due to filtering of secondary alignments
 			if(tl.getNrSupportingReads()>0) {
-				Position p = s.getPosition2(sp);
-				if(p!=null) {
-					ArrayList<Translocation> al = trans.get(p.getChr());
-					if(al==null) {
-						al = new ArrayList<Translocation>();
-						trans.put(p.getChr(), al);
-					}
-					al.add(tl);
-					if(s.getReadName().contentEquals(testName)) { 
-						System.out.println("addTranslocation - checkpoint2");}
-					return tl;
+				ArrayList<Translocation> al = trans.get(p.getChr());
+				if(al==null) {
+					al = new ArrayList<Translocation>();
+					trans.put(p.getChr(), al);
 				}
+				al.add(tl);
+				if(s.getReadName().contentEquals(testName)) { 
+					System.out.println("addTranslocation - checkpoint2");}
+				return tl;
 			}
 			else {
 				//System.out.println(tl.getContigMate()+" has 0 supporting reads");
