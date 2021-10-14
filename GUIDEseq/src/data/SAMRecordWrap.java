@@ -154,6 +154,122 @@ public class SAMRecordWrap{
 		System.err.println("requested isForwardSecondSATag from read without SA");
 		return false;
 	}
+	public String getGenomicPart(String tdna, String chr, int location) {
+		//check if this is already the correct alignment to fetch the genomic part
+		if(this.getContig().contentEquals(chr)) {
+			//forward
+			int position = this.getAlignmentStart();
+			//recalculate position for reverse reads
+			if(this.getReadNegativeStrandFlag()) {
+				position = this.getAlignmentEnd();
+			}
+			//distance of 20 is perhaps a bit arbitrary
+			if(Math.abs(position-location)<20) {
+				Cigar cigar = this.getCigar();
+				return this.getReadString(cigar,!this.getReadNegativeStrandFlag());
+			}
+		}
+		//still here so we need to switch to the correct SATag
+		String satag = getSATagLocation(chr, location);
+		if(satag == null) {
+			return null;
+		}
+		boolean isForward = isForward(satag);
+		Cigar cigar = Utils.parseCigar(getCigar(satag));
+		return this.getReadString(cigar,isForward);
+	}
+	/** Find the SATag that is closest to the position that is given
+	 *  Generally this is the genomic location of the junction
+	 *  it will return the SATag if that is located within 20bp of the given location
+	 *  
+	 *  if only one SATag was found on the asked chromosome that one is returned
+	 *  
+	 * @param chr the contig that needs to match
+	 * @param location
+	 * @return
+	 */
+	private String getSATagLocation(String chr, int location) {
+		String[] SATags = this.getSATags();
+		if(SATags.length==1) {
+			return SATags[0];
+		}
+		int countCorrectChrs = 0;
+		String lastCorrectChrSA = null;
+		for(String satag: SATags) {
+			String contig = getContig(satag);
+			if(contig.contentEquals(chr)) {
+				countCorrectChrs++;
+				lastCorrectChrSA = satag;
+				int position = getPosition(satag);
+				//recalculate position for reverse reads
+				if(!isForward(satag)) {
+					Cigar c = Utils.parseCigar(getCigar(satag));
+					if(c.getFirstCigarElement().getOperator()==CigarOperator.M) {
+						//off by 1
+						position = position+c.getFirstCigarElement().getLength()-1;
+					}
+				}
+				//distance of 20 is perhaps a bit arbitrary
+				if(Math.abs(position-location)<20) {
+					return satag;
+				}
+			}
+		}
+		//we only had one option, so return this one anyway
+		if(countCorrectChrs==1) {
+			return lastCorrectChrSA;
+		}
+		return null;
+	}
+	/**Get the correct part of the read, based on the cigar string and the mapping orientation
+	 * if first element is M, take that sequence
+	 * otherwise if last element is M, take that sequenc 
+	 * or null if that was not found
+	 * @param c
+	 * @param isForward
+	 * @return
+	 */
+	private String getReadString(Cigar c, boolean isForward) {
+		if(c.getFirstCigarElement().getOperator()==CigarOperator.M) {
+			String seq = null;
+			if(isForward) {
+				seq = this.getReadString().substring(0, c.getFirstCigarElement().getLength());
+			}
+			else {
+				seq = this.getReadString().substring(c.getReadLength()-c.getFirstCigarElement().getLength());
+			}
+			return seq;
+		}
+		else if(c.getLastCigarElement().getOperator()==CigarOperator.M) {
+			String seq = null;
+			if(isForward) {
+				seq = this.getReadString().substring(c.getReadLength()-c.getLastCigarElement().getLength());
+			}
+			else {
+				seq = this.getReadString().substring(0, c.getLastCigarElement().getLength());
+			}
+			return seq;
+		}
+		return null;
+	}
+	private static String getCigar(String satag) {
+		return satag.split(",")[3];
+	}
+	private static String getContig(String satag) {
+		return satag.split(",")[0];
+	}
+	private static int getPosition(String satag) {
+		String pos = satag.split(",")[1]; 
+		return Integer.parseInt(pos);
+	}
+	private static boolean isForward(String satag) {
+		String fw = satag.split(",")[2];
+		return fw.contentEquals("+");
+	}
+	private String[] getSATags() {
+		String SATag = this.getSATag();
+		return SATag.split(";");
+	}
 	public int getSALength() {
 		String SATag = getSATag();
 		if(SATag != null) {

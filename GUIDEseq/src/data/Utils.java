@@ -3,7 +3,9 @@ package data;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import htsjdk.samtools.Cigar;
 import htsjdk.samtools.CigarElement;
+import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMRecord;
 
 public class Utils {
@@ -112,5 +114,22 @@ public class Utils {
 			s.append(" ");
 		}
 		return s.toString();
+	}
+	public static Cigar parseCigar(String cigarString) {
+		Cigar cigar = new Cigar();
+		String lengthString = "";
+		for(int i=0;i<cigarString.length();i++) {
+			char c = cigarString.charAt(i);
+			if(Character.isDigit(c)) {
+				lengthString+=c;
+			}
+			else {
+				CigarOperator.characterToEnum(c);
+				CigarElement ce = new CigarElement(Integer.parseInt(lengthString),CigarOperator.characterToEnum(c));
+				cigar.add(ce);
+				lengthString = "";
+			}
+		}
+		return cigar;
 	}
 }
