@@ -952,7 +952,7 @@ public class Translocation {
 						}
 				}
 				if (readSequence == null) {
-					badreads.add(sr.getReadName());
+					//badreads.add(sr.getReadName());
 					if(sr.getReadName().equals(testName)) { 
 						System.err.println("The read "+testName+" will be removed because the full T-DNA read is null");
 					}
@@ -966,7 +966,7 @@ public class Translocation {
 		splitReads.append("\r\n\nTDNA reads - only the genomic part\r\n");
 		for(SAMRecordWrap sr: tdnareads) {
 			if (!badreads.contains(sr.getReadName())) {
-				String readPart = sr.getGenomicPart(sp.getChr(), this.getContigMate(), this.getPosition());
+				String readPart = sr.getGenomicPart(sp.getChr());
 				if ((readPart != null) && (readPart.length()>=15)) {
 					String minimumPart = readPart.substring(0, 15);
 					TDNAgencons.add(minimumPart);
@@ -978,6 +978,7 @@ public class Translocation {
 				}
 				else {
 					badreads.add(sr.getReadName());
+					System.err.println("The read "+sr.getReadName()+" will be removed because the genomic part is null or shorter than 15 bp: "+readPart);
 					if(sr.getReadName().equals(testName)) { 
 						System.err.println("The read "+testName+" will be removed because the genomic part is null or shorter than 15 bp: "+readPart);
 						}
