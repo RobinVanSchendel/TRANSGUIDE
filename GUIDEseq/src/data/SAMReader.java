@@ -4,6 +4,9 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -166,6 +169,13 @@ public class SAMReader {
 			}
 		}
 		System.out.println("Output written to: "+out.getAbsolutePath());
+		Path path = Paths.get(out.getAbsolutePath());
+		try {
+			System.out.println("Output size is "+Files.size(path));
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		try {
 			allEvents.close();
 			bw.close();
