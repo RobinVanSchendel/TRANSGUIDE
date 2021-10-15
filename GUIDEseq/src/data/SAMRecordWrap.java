@@ -1,5 +1,6 @@
 package data;
 
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,8 +15,20 @@ public class SAMRecordWrap{
 	private Position pos = null;
 	public static final String testName = TranslocationController.testName;
 	SAMRecord s;
+	private ArrayList<SATag> satags = null;
 	public SAMRecordWrap(SAMRecord s) {
 		this.s = s;
+		fillSATags();
+;	}
+	private void fillSATags() {
+		String[] satagsString = this.getSATags();
+		if(satagsString != null) {
+			satags = new ArrayList<SATag>();
+			for(String s: satagsString) {
+				SATag sa = SATag.parseSATag(s);
+				satags.add(sa);
+			}
+		}
 	}
 	/**Returns true if the SAMRecord is considered to be an anchor read
 	 * 
@@ -155,133 +168,47 @@ public class SAMRecordWrap{
 		System.err.println("requested isForwardSecondSATag from read without SA");
 		return false;
 	}
-	public String getGenomicPart(String tdna) {
-		int length = 0;
+	public SATag getGenomicSATag(String tdna) {
 		if (!getContig().equals(tdna) && s.getCigarLength()==2) {
-			if (s.getReadNegativeStrandFlag()==true){
-				pos = new Position(s.getContig(),s.getAlignmentEnd());
-				length = this.getCigar().getFirstCigarElement().getLength();
+			return new SATag(this.getContig(), this.getAlignmentStart(), !this.getReadNegativeStrandFlag(),
+					this.getCigar(), this.getMappingQuality(),0);
+		}
+		else {
+			SATag one = satags.get(0);
+			if (!one.contigMatches(tdna) && one.getCigarLength()==2) {
+				return one;
 			}
-			if (s.getReadNegativeStrandFlag()==false){
-				pos = new Position(s.getContig(),s.getAlignmentStart());
-				length = this.getCigar().getLastCigarElement().getLength();
+			else {
+				if(satags.size()>1) {
+					SATag two = satags.get(1);
+					if(!two.contigMatches(tdna) && two.getCigarLength()==2) {
+						return two;
+					}
+				}
+			}
+		}
+		return null;
+		
+	}
+	public String getGenomicPart(String tdna) {
+		SATag genomic = getGenomicSATag(tdna);
+		if(genomic!=null) {
+			int length = 0;
+			if(!genomic.isForward()) {
+				length = genomic.getCigar().getFirstCigarElement().getLength();
+			}
+			else {
+				length = genomic.getCigar().getLastCigarElement().getLength();
 			}
 			return  this.getReadString().substring(this.getReadString().length()-length, this.getReadString().length());
 		}
-		else {
-			if (!getContigSATagIsContig(tdna) && getSACigarLength()==2) {
-				if (isForwardSATag()) {
-					length = getSATagLastElement();
-				}
-				else if (!isForwardSATag()) {
-					length = getSATagFirstElement();
-				}
-				return  this.getReadString().substring(this.getReadString().length()-length, this.getReadString().length());
-			}
-			else {
-				if ((getSALength()>6) && !getContigSecondSATagIsContig(tdna) && getSASecondCigarLength() == 2) {
-					if (isForwardSecondSATag()) {
-						length = getSATag2LastElement();
-					}
-					else if (!isForwardSecondSATag()) {
-						length = getSATag2FirstElement();
-					}
-					return  this.getReadString().substring(this.getReadString().length()-length, this.getReadString().length());
-				}
-			}
-		}
 		return null;
-	}
-	/** Find the SATag that is closest to the position that is given
-	 *  Generally this is the genomic location of the junction
-	 *  it will return the SATag if that is located within 20bp of the given location
-	 *  
-	 *  if only one SATag was found on the asked chromosome that one is returned
-	 *  
-	 * @param chr the contig that needs to match
-	 * @param location
-	 * @return
-	 */
-	private String getSATagLocation(String chr, int location) {
-		String[] SATags = this.getSATags();
-		if(SATags.length==1) {
-			return SATags[0];
-		}
-		int countCorrectChrs = 0;
-		String lastCorrectChrSA = null;
-		for(String satag: SATags) {
-			String contig = getContig(satag);
-			if(contig.contentEquals(chr)) {
-				countCorrectChrs++;
-				lastCorrectChrSA = satag;
-				int position = getPosition(satag);
-				//recalculate position for reverse reads
-				if(!isForward(satag)) {
-					Cigar c = Utils.parseCigar(getCigar(satag));
-					if(c.getFirstCigarElement().getOperator()==CigarOperator.M) {
-						//off by 1
-						position = position+c.getFirstCigarElement().getLength()-1;
-					}
-				}
-				//distance of 20 is perhaps a bit arbitrary
-				if(Math.abs(position-location)<20) {
-					return satag;
-				}
-			}
-		}
-		//we only had one option, so return this one anyway
-		if(countCorrectChrs==1) {
-			return lastCorrectChrSA;
-		}
-		return null;
-	}
-	/**Get the correct part of the read, based on the cigar string and the mapping orientation
-	 * if first element is M, take that sequence
-	 * otherwise if last element is M, take that sequenc 
-	 * or null if that was not found
-	 * @param c
-	 * @param isForward
-	 * @return
-	 */
-	private String getReadString(Cigar c, boolean isForward) {
-		if(c.getFirstCigarElement().getOperator()==CigarOperator.M) {
-			String seq = null;
-			if(isForward) {
-				seq = this.getReadString().substring(0, c.getFirstCigarElement().getLength());
-			}
-			else {
-				seq = this.getReadString().substring(c.getReadLength()-c.getFirstCigarElement().getLength());
-			}
-			return seq;
-		}
-		else if(c.getLastCigarElement().getOperator()==CigarOperator.M) {
-			String seq = null;
-			if(isForward) {
-				seq = this.getReadString().substring(c.getReadLength()-c.getLastCigarElement().getLength());
-			}
-			else {
-				seq = this.getReadString().substring(0, c.getLastCigarElement().getLength());
-			}
-			return seq;
-		}
-		return null;
-	}
-	private static String getCigar(String satag) {
-		return satag.split(",")[3];
-	}
-	private static String getContig(String satag) {
-		return satag.split(",")[0];
-	}
-	private static int getPosition(String satag) {
-		String pos = satag.split(",")[1]; 
-		return Integer.parseInt(pos);
-	}
-	private static boolean isForward(String satag) {
-		String fw = satag.split(",")[2];
-		return fw.contentEquals("+");
 	}
 	private String[] getSATags() {
 		String SATag = this.getSATag();
+		if(SATag == null) {
+			return null;
+		}
 		return SATag.split(";");
 	}
 	public int getSALength() {
@@ -430,52 +357,6 @@ public class SAMRecordWrap{
 		return -1;
 	}
 
-	public int getSATagFirstElement() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String SACigar = SATag.split(",|;")[3];
-			String[] CigarElements = SACigar.split("S|D|M|I|H");
-			int SALastInt = Integer.valueOf(CigarElements[0]);
-			return SALastInt;
-		}
-		System.err.println("requested SA element from read without SA");
-		return -1;
-	}
-	public int getSATagLastElement() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String SACigar = SATag.split(",|;")[3];
-			String[] CigarElements = SACigar.split("S|D|M|I|H");
-			int SALength = CigarElements.length;
-			int SALastInt = Integer.valueOf(CigarElements[SALength-1]);
-			return SALastInt;
-		}
-		System.err.println("requested SA element from read without SA");
-		return -1;
-	}
-	public int getSATag2FirstElement() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String SACigar = SATag.split(",|;")[9];
-			String[] CigarElements = SACigar.split("S|D|M|I|H");
-			int SALastInt = Integer.valueOf(CigarElements[0]);
-			return SALastInt;
-		}
-		System.err.println("requested SA element from read without SA");
-		return -1;
-	}
-	public int getSATag2LastElement() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String SACigar = SATag.split(",|;")[9];
-			String[] CigarElements = SACigar.split("S|D|M|I|H");
-			int SALength = CigarElements.length;
-			int SALastInt = Integer.valueOf(CigarElements[SALength-1]);
-			return SALastInt;
-		}
-		System.err.println("requested SA element from read without SA");
-		return -1;
-	}
 	/**
 	 * Get the position on the chromosome of the second alignment on the SA tag. 
 	 * @param s
@@ -490,9 +371,6 @@ public class SAMRecordWrap{
 		System.err.println("requested getPosSATag2 from read without SA");
 		return -1;
 	}
-	
-
-
 	
 	public boolean getMateNegativeStrandFlag() {
 		return s.getMateNegativeStrandFlag();
@@ -522,41 +400,17 @@ public class SAMRecordWrap{
 		if(this.pos!=null) {
 			return pos;
 		}
-		
-		if (!getContig().equals(sp.getChr()) && s.getCigarLength()==2) {
-			if (s.getReadNegativeStrandFlag()==true){
-				pos = new Position(s.getContig(),s.getAlignmentEnd());
-			}
-			if (s.getReadNegativeStrandFlag()==false){
-				pos = new Position(s.getContig(),s.getAlignmentStart());
-			}
-			return pos;
+		SATag genomic = this.getGenomicSATag(sp.getChr());
+		if(genomic ==null) {
+			return null;
+		}
+		if(genomic.isForward()) {
+			pos = new Position(genomic.getContig(),genomic.getPosition());
 		}
 		else {
-			if (!getContigSATagIsContig(sp.getChr()) && getSACigarLength()==2) {
-				if (isForwardSATag()) {
-					pos = new Position(this.getContigSATag(),getPosSATag());
-				}
-				else if (!isForwardSATag()) {
-					pos = new Position(this.getContigSATag(),getPosSATagEnd());
-				}
-				return pos;
-			}
-			//Sometimes the primary alignment and the second alignment is both on the T-DNA plasmid if there is a large templated filler matching the plasmid.
-			//in that case the tertiary alignment is on the genome, so it is there where you have to find the genomic position.
-			else {
-				if ((getSALength()>6) && !getContigSecondSATagIsContig(sp.getChr()) && getSASecondCigarLength() == 2) {
-					if (isForwardSecondSATag()) {
-						pos = new Position(this.getContigSecondSATag(),getPosSATag2()); 
-					}
-					else if (!isForwardSecondSATag()) {
-						pos = new Position(this.getContigSecondSATag(),getPosSATagEnd2());
-					}
-					return pos;
-				}
-			}
+			pos = new Position(genomic.getContig(), genomic.getPositionEnd());
 		}
-		return null;
+		return pos;
 	}
 	public String getAlignmentLocation() {
 		return this.getContig()+":"+this.getAlignmentStart()+"-"+this.getAlignmentEnd()+" ("+this.getReadNegativeStrandFlag()+")";
