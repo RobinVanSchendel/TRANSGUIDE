@@ -21,7 +21,11 @@ public class SAMRecordWrap{
 		fillSATags();
 ;	}
 	private void fillSATags() {
-		String[] satagsString = this.getSATags();
+		String SATagString = this.getSATag();
+		if(SATagString == null) {
+			return;
+		}
+		String[] satagsString = SATagString.split(";");
 		if(satagsString != null) {
 			satags = new ArrayList<SATag>();
 			for(String s: satagsString) {
@@ -128,10 +132,11 @@ public class SAMRecordWrap{
 		return s.hasAttribute(string);
 	}
 	public boolean getContigSATagIsContig(String chr) {
-		String contig = getContigSATag();
-		if(contig!=null) {
-			return contig.contentEquals(chr);
+		SATag tag = satags.get(0);
+		if(tag!=null) {
+			return tag.contigMatches(chr);
 		}
+		System.err.println("requested getContigSATagIsContig from read without SA");
 		return false;
 	}
 	public String getSATag() {
@@ -141,29 +146,17 @@ public class SAMRecordWrap{
 		return null;
 	}
 	public boolean isForwardSATag() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String signString = SATag.split(",|;")[2];
-			if (signString.equals("+")){
-					return true;
-			}
-			else {
-				return false;
-			}
+		SATag tag = satags.get(0);
+		if(tag!=null) {
+			return tag.isForward();
 		}
 		System.err.println("requested isForwardSATag from read without SA");
 		return false;
 	}
 	public boolean isForwardSecondSATag() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String signString = SATag.split(",|;")[8];
-			if (signString.equals("+")){
-					return true;
-			}
-			else {
-				return false;
-			}
+		SATag tag = satags.get(1);
+		if(tag!=null) {
+			return tag.isForward();
 		}
 		System.err.println("requested isForwardSecondSATag from read without SA");
 		return false;
@@ -204,22 +197,9 @@ public class SAMRecordWrap{
 		}
 		return null;
 	}
-	private String[] getSATags() {
-		String SATag = this.getSATag();
-		if(SATag == null) {
-			return null;
-		}
-		return SATag.split(";");
-	}
+	//TODO: remove this method
 	public int getSALength() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String[] SAList = SATag.split(",|;");
-			int SALength = SAList.length;
-			return SALength;
-		}
-		System.err.println("requested getSALength from read without SA");
-		return -1;
+		return satags.size()*6;
 	}
 	public String getReadName() {
 		return s.getReadName();
@@ -231,25 +211,17 @@ public class SAMRecordWrap{
 		return s.getCigarLength();
 	}
 	public int getSACigarLength() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String cigarString = SATag.split(",|;")[3];
-			int countS = countChar(cigarString, 'S');
-			int countM = countChar(cigarString, 'M');
-			int totalCount = countS+countM;
-			return totalCount;
+		SATag tag = satags.get(0);
+		if(tag!=null) {
+			return tag.getSACigarLength();
 		}
 		System.err.println("requested getSACigarLength from read without SA");
 		return -1;
 	}
 	public int getSASecondCigarLength() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String cigarString = SATag.split(",|;")[9];
-			int countS = countChar(cigarString, 'S');
-			int countM = countChar(cigarString, 'M');
-			int totalCount = countS+countM;
-			return totalCount;
+		SATag tag = satags.get(1);
+		if(tag!=null) {
+			return tag.getSACigarLength();
 		}
 		System.err.println("requested getSASecondCigarLength from read without SA");
 		return -1;
@@ -267,77 +239,41 @@ public class SAMRecordWrap{
 		return s.getCigarString();
 	}
 	public String getContigSATag() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			return SATag.split(",|;")[0];
+		SATag tag = satags.get(0);
+		if(tag!=null) {
+			return tag.getContig();
 		}
 		System.err.println("requested getContigSATag from read without SA");
 		return null;
 	}
 	public String getContigSecondSATag() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String[] split = SATag.split(",|;");
-			if(split.length>6) {
-				return SATag.split(",|;")[6];
-			}
-			return null;
+		SATag tag = satags.get(1);
+		if(tag!=null) {
+			return tag.getContig();
 		}
 		System.err.println("requested getContigSecondSATag from read without SA");
 		return null;
 	}
 	public boolean getContigSecondSATagIsContig(String chr) {
-		String contig = getContigSecondSATag();
-		if(contig!=null) {
-			return contig.contentEquals(chr);
+		SATag tag = satags.get(1);
+		if(tag!=null) {
+			return tag.contigMatches(chr);
 		}
+		System.err.println("requested getContigSecondSATagIsContig from read without SA");
 		return false;
 	}
 	public int getPosSATagEnd() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String intString = SATag.split(",|;")[1];
-			int pos = Integer.parseInt(intString);
-			String cigarString = SATag.split(",|;")[3];
-			int indexFirstM = cigarString.indexOf("M");
-			int indexFirstS = cigarString.indexOf("S");
-			if (indexFirstS < indexFirstM) {
-				int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
-				int position = pos+posSM-1;
-				return position;
-			}
-			if (indexFirstM < indexFirstS) {
-				int posSM = Integer.parseInt(cigarString.substring(0, indexFirstM));
-				int position = pos+posSM-1;
-				return position;
-			}
-			int position =-1;
-			return position;
+		SATag tag = satags.get(0);
+		if(tag!=null) {
+			return tag.getPositionEnd();
 		}
 		System.err.println("requested getPosSATagEnd from read without SA");
 		return -1;
 	}
 	public int getPosSATagEnd2() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String intString = SATag.split(",|;")[7];
-			int pos = Integer.parseInt(intString);
-			String cigarString = SATag.split(",|;")[9];
-			int indexFirstM = cigarString.indexOf("M");
-			int indexFirstS = cigarString.indexOf("S");
-			//int indexFirstH = cigarString.indexOf("H");
-			if (indexFirstS < indexFirstM) {
-				int posSM = Integer.parseInt(cigarString.substring(indexFirstS+1, indexFirstM));
-				int position = pos+posSM-1;
-				return position;
-			}
-			if (indexFirstM < indexFirstS) {
-				int posSM = Integer.parseInt(cigarString.substring(0, indexFirstM));
-				int position = pos+posSM-1;
-				return position;
-			}
-			int position =-1;
-			return position;
+		SATag tag = satags.get(1);
+		if(tag!=null) {
+			return tag.getPositionEnd();
 		}
 		System.err.println("requested getPosSATagEnd2 from read without SA");
 		return -1;
@@ -348,10 +284,9 @@ public class SAMRecordWrap{
 	 * @return a signed decimal integer with the chromosomal position
 	 */
 	public int getPosSATag() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String intString = SATag.split(",|;")[1];
-			return Integer.parseInt(intString);
+		SATag tag = satags.get(0);
+		if(tag!=null) {
+			return tag.getPosition();
 		}
 		System.err.println("requested getPosSATag from read without SA");
 		return -1;
@@ -363,10 +298,9 @@ public class SAMRecordWrap{
 	 * @return a signed decimal integer with the chromosomal position
 	 */
 	public int getPosSATag2() {
-		String SATag = getSATag();
-		if(SATag != null) {
-			String intString = SATag.split(",|;")[7];
-			return Integer.parseInt(intString);
+		SATag tag = satags.get(1);
+		if(tag!=null) {
+			return tag.getPosition();
 		}
 		System.err.println("requested getPosSATag2 from read without SA");
 		return -1;

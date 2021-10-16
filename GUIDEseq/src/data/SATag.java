@@ -1,6 +1,7 @@
 package data;
 
 import htsjdk.samtools.Cigar;
+import htsjdk.samtools.CigarElement;
 import htsjdk.samtools.CigarOperator;
 
 public class SATag {
@@ -84,5 +85,19 @@ public class SATag {
 		}
 		System.err.println("hier");
 		return -1;
+	}
+	/**wrong name. But counts the amount of S and M cigars
+	 * 
+	 * @return
+	 */
+	public int getSACigarLength() {
+		int count = 0;
+		for(CigarElement ce: cigar.getCigarElements()) {
+			if(ce.getOperator() == CigarOperator.M ||
+					ce.getOperator() == CigarOperator.S) {
+				count++;
+			}
+		}
+		return count;
 	}
 }
