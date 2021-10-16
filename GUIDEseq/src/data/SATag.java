@@ -90,7 +90,7 @@ public class SATag {
 	 * 
 	 * @return
 	 */
-	public int getSACigarLength() {
+	public int getSACigarLengthSM() {
 		int count = 0;
 		for(CigarElement ce: cigar.getCigarElements()) {
 			if(ce.getOperator() == CigarOperator.M ||
@@ -99,5 +99,13 @@ public class SATag {
 			}
 		}
 		return count;
+	}
+	public int getCigarFirstMLength() {
+		for(CigarElement ce: cigar.getCigarElements()) {
+			if(ce.getOperator() == CigarOperator.M) {
+				return ce.getLength();
+			}
+		}
+		return -1;
 	}
 }

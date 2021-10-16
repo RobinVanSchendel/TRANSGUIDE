@@ -197,6 +197,42 @@ public class SAMRecordWrap{
 		}
 		return null;
 	}
+	/** Retrieve the TDNA part of the read
+	 * 
+	 * @param sp
+	 * @return
+	 */
+	public String getTDNAPart(SamplePrimer sp) {
+		SATag tdna = this.getTDNASATag(sp.getChr());
+		if(tdna!=null) {
+			int length = 0;
+			length = tdna.getCigarFirstMLength();
+			return  this.getReadString().substring(0,length);
+		}
+		return null;
+	}
+	
+	private SATag getTDNASATag(String tdna) {
+		if (getContig().equals(tdna) && s.getCigarLength()==2) {
+			return new SATag(this.getContig(), this.getAlignmentStart(), !this.getReadNegativeStrandFlag(),
+					this.getCigar(), this.getMappingQuality(),0);
+		}
+		else {
+			SATag one = satags.get(0);
+			if (one.contigMatches(tdna) && one.getCigarLength()==2) {
+				return one;
+			}
+			else {
+				if(satags.size()>1) {
+					SATag two = satags.get(1);
+					if(two.contigMatches(tdna) && two.getCigarLength()==2) {
+						return two;
+					}
+				}
+			}
+		}
+		return null;
+	}
 	//TODO: remove this method
 	public int getSALength() {
 		return satags.size()*6;
@@ -213,7 +249,7 @@ public class SAMRecordWrap{
 	public int getSACigarLength() {
 		SATag tag = satags.get(0);
 		if(tag!=null) {
-			return tag.getSACigarLength();
+			return tag.getSACigarLengthSM();
 		}
 		System.err.println("requested getSACigarLength from read without SA");
 		return -1;
@@ -221,7 +257,7 @@ public class SAMRecordWrap{
 	public int getSASecondCigarLength() {
 		SATag tag = satags.get(1);
 		if(tag!=null) {
-			return tag.getSACigarLength();
+			return tag.getSACigarLengthSM();
 		}
 		System.err.println("requested getSASecondCigarLength from read without SA");
 		return -1;

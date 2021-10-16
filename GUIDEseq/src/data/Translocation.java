@@ -326,95 +326,6 @@ public class Translocation {
 		}
 	}
 	
-	/** 
-	 * @param sr
-	 * @param replaceWithSpaces
-	 * @param sp
-	 * @return the part that matches with the T-DNA, excluding the genomic part or the filler.
-	 */
-	private static String getTDNAPart(SAMRecordWrap sr, SamplePrimer sp) {
-		//get the T-DNA reads
-		if (sr.getFirstOfPairFlag()== sp.isFirstOfPairFlag())  {
-			CigarElement ce1 = sr.getCigar().getCigarElement(0);
-			CigarElement ce2 = sr.getCigar().getCigarElement(1);
-			String SATag = sr.getSATag();
-    		int SALength = sr.getSALength();
-    		String SACigar = SATag.split(",|;")[3];
-    		int indexFirstM = SACigar.indexOf("M");
-			int indexFirstS = SACigar.indexOf("S");
-			if(sr.getReadName().contentEquals(testName)) {
-				System.out.println("getTDNApart - checkpoint1");
-			}
-			//read mapped on T-DNA, so take sequence from here
-			if ((sr.getContig().equals(sp.getChr())==true) && (sr.getCigarLength()==2)) {
-				if (!sr.getReadNegativeStrandFlag()) {
-					if (ce1.getOperator().equals(CigarOperator.M)) {
-						int mLength = ce1.getLength();
-						String tdnaPart = sr.getReadString().substring(0, mLength);
-						return tdnaPart;
-					}
-				}
-				else if (sr.getReadNegativeStrandFlag()==true) {
-					if (ce2.getOperator().equals(CigarOperator.M)) {
-						int mLength = ce2.getLength();
-						String tdnaPart = sr.getReadString().substring(0, mLength);
-						return tdnaPart;
-					}
-				}
-			}
-			//read not mapped on T-DNA
-			else {
-				//System.out.println(sr.getReadName() + " "+sr.getSATag()+" "+sr.getCigarString());
-				if (sr.getContigSATagIsContig(sp.getChr())  && sr.getSACigarLength()==2) {
-					if (!sr.isForwardSATag()) {
-						if (indexFirstM > indexFirstS) {
-							int mLength = Integer.parseInt(SACigar.substring(indexFirstS+1, indexFirstM));
-							String tdnaPart = sr.getReadString().substring(0, mLength);
-							//System.out.println("taking "+0+"-"+mLength);
-							//System.out.println(tdnaPart);
-							return tdnaPart;
-						}
-					}
-					if (sr.isForwardSATag()) {
-						if (indexFirstM < indexFirstS) {
-							int mLength = Integer.parseInt(SACigar.substring(0, indexFirstM));
-							String tdnaPart = sr.getReadString().substring(0, mLength);
-							//System.out.println("taking "+0+"-"+mLength);
-							//System.out.println(tdnaPart);
-							return tdnaPart;
-						}
-					}
-					//System.out.println("not taking anything when read not mapped on T-DNA");
-				}
-				else {
-					if ((SALength>6) && sr.getContigSecondSATagIsContig(sp.getChr()) && sr.getSASecondCigarLength()==2 ) {
-						String SACigar2 = SATag.split(",|;")[9];
-						int indexFirstM2 = SACigar2.indexOf("M");
-						int indexFirstS2 = SACigar2.indexOf("S");
-						if (!sr.isForwardSecondSATag()) {
-							if (indexFirstS2 < indexFirstM2) {
-								int mLength = Integer.parseInt(SACigar2.substring(indexFirstS2+1, indexFirstM2));
-								String tdnaPart = sr.getReadString().substring(0, mLength);
-								return tdnaPart;
-							}
-						}
-						else if (sr.isForwardSecondSATag()) {
-							if (indexFirstM2 < indexFirstS2) {
-								int mLength = Integer.parseInt(SACigar2.substring(0, indexFirstM2));
-								String tdnaPart = sr.getReadString().substring(0, mLength);
-								return tdnaPart;
-							}
-						}
-					}
-				}
-			}
-		}
-		if(sr.getReadName().contentEquals(testName)) { 
-			System.err.println("The T-DNA part of read "+sr.getReadName()+" with CIGAR "+sr.getCigarString()+" will be considered null");
-			}
-		return null;
-	}
-	
 	private boolean getFillerIsTemplated(int start, int end, int maxTries) {
 		if(this.isOK() && this.getFiller().length()>=minSizeInsertionSolver){
 			//there was a bug here if the size was too small
@@ -915,7 +826,7 @@ public class Translocation {
 		this.TDNAgencons = new Consensus();
 		splitReads.append("\r\n\nTDNA reads - only the T-DNA part\r\n");
 		for(SAMRecordWrap sr: tdnareads) {
-			String readPart = Translocation.getTDNAPart(sr, sp);
+			String readPart = sr.getTDNAPart(sp);
 			if (readPart != null) {
 				TDNAcons.add(readPart);
 				String cigar = Utils.getString(sr.getCigarString(),24);
