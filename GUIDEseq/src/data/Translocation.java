@@ -863,10 +863,8 @@ public class Translocation {
 						}
 				}
 				if (readSequence == null) {
-					//badreads.add(sr.getReadName());
-					if(sr.getReadName().equals(testName)) { 
-						System.err.println("The read "+testName+" will be removed because the full T-DNA read is null");
-					}
+					System.err.println("Error: the read "+sr.getReadName()+" will be removed");
+					badreads.add(sr.getReadName());
 				}
 			
 			}
@@ -888,11 +886,8 @@ public class Translocation {
 						}
 				}
 				else {
+					System.err.println("Error: the read "+sr.getReadName()+" will be removed because the genomic part is null or shorter than 15 bp");
 					badreads.add(sr.getReadName());
-					System.err.println("The read "+sr.getReadName()+" will be removed because the genomic part is null or shorter than 15 bp: "+readPart);
-					if(sr.getReadName().equals(testName)) { 
-						System.err.println("The read "+testName+" will be removed because the genomic part is null or shorter than 15 bp: "+readPart);
-						}
 				}
 			}
 		}
