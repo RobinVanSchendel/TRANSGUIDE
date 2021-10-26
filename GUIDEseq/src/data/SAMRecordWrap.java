@@ -132,9 +132,11 @@ public class SAMRecordWrap{
 		return s.hasAttribute(string);
 	}
 	public boolean getContigSATagIsContig(String chr) {
-		SATag tag = satags.get(0);
-		if(tag!=null) {
-			return tag.contigMatches(chr);
+		if(satags != null && satags.size()>=1) {
+			SATag tag = satags.get(0);
+			if(tag!=null) {
+				return tag.contigMatches(chr);
+			}
 		}
 		System.err.println("requested getContigSATagIsContig from read without SA");
 		return false;
@@ -146,17 +148,21 @@ public class SAMRecordWrap{
 		return null;
 	}
 	public boolean isForwardSATag() {
-		SATag tag = satags.get(0);
-		if(tag!=null) {
-			return tag.isForward();
+		if(satags != null && satags.size()>=1) {
+			SATag tag = satags.get(0);
+			if(tag!=null) {
+				return tag.isForward();
+			}
 		}
 		System.err.println("requested isForwardSATag from read without SA");
 		return false;
 	}
 	public boolean isForwardSecondSATag() {
-		SATag tag = satags.get(1);
-		if(tag!=null) {
-			return tag.isForward();
+		if(satags != null && satags.size()>=2) {
+			SATag tag = satags.get(1);
+			if(tag!=null) {
+				return tag.isForward();
+			}
 		}
 		System.err.println("requested isForwardSecondSATag from read without SA");
 		return false;
@@ -275,41 +281,51 @@ public class SAMRecordWrap{
 		return s.getCigarString();
 	}
 	public String getContigSATag() {
-		SATag tag = satags.get(0);
-		if(tag!=null) {
-			return tag.getContig();
+		if(satags!=null && satags.size()>=1) {
+			SATag tag = satags.get(0);
+			if(tag!=null) {
+				return tag.getContig();
+			}
 		}
 		System.err.println("requested getContigSATag from read without SA");
 		return null;
 	}
 	public String getContigSecondSATag() {
-		SATag tag = satags.get(1);
-		if(tag!=null) {
-			return tag.getContig();
+		if(satags!=null && satags.size()>=2) {
+			SATag tag = satags.get(1);
+			if(tag!=null) {
+				return tag.getContig();
+			}
 		}
 		System.err.println("requested getContigSecondSATag from read without SA");
 		return null;
 	}
 	public boolean getContigSecondSATagIsContig(String chr) {
-		SATag tag = satags.get(1);
-		if(tag!=null) {
-			return tag.contigMatches(chr);
+		if(satags!=null && satags.size()>=2) {
+			SATag tag = satags.get(1);
+			if(tag!=null) {
+				return tag.contigMatches(chr);
+			}
 		}
 		System.err.println("requested getContigSecondSATagIsContig from read without SA");
 		return false;
 	}
 	public int getPosSATagEnd() {
-		SATag tag = satags.get(0);
-		if(tag!=null) {
-			return tag.getPositionEnd();
+		if(satags!=null && satags.size()>=1) {
+			SATag tag = satags.get(0);
+			if(tag!=null) {
+				return tag.getPositionEnd();
+			}
 		}
 		System.err.println("requested getPosSATagEnd from read without SA");
 		return -1;
 	}
 	public int getPosSATagEnd2() {
-		SATag tag = satags.get(1);
-		if(tag!=null) {
-			return tag.getPositionEnd();
+		if(satags!=null && satags.size()>=2) {
+			SATag tag = satags.get(1);
+			if(tag!=null) {
+				return tag.getPositionEnd();
+			}
 		}
 		System.err.println("requested getPosSATagEnd2 from read without SA");
 		return -1;
@@ -320,9 +336,11 @@ public class SAMRecordWrap{
 	 * @return a signed decimal integer with the chromosomal position
 	 */
 	public int getPosSATag() {
-		SATag tag = satags.get(0);
-		if(tag!=null) {
-			return tag.getPosition();
+		if(satags!=null && satags.size()>=1) {
+			SATag tag = satags.get(0);
+			if(tag!=null) {
+				return tag.getPosition();
+			}
 		}
 		System.err.println("requested getPosSATag from read without SA");
 		return -1;
@@ -334,9 +352,11 @@ public class SAMRecordWrap{
 	 * @return a signed decimal integer with the chromosomal position
 	 */
 	public int getPosSATag2() {
-		SATag tag = satags.get(1);
-		if(tag!=null) {
-			return tag.getPosition();
+		if(satags!=null && satags.size()>=2) {
+			SATag tag = satags.get(1);
+			if(tag!=null) {
+				return tag.getPosition();
+			}
 		}
 		System.err.println("requested getPosSATag2 from read without SA");
 		return -1;
