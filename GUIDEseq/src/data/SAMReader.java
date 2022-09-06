@@ -41,7 +41,7 @@ public class SAMReader {
 		MyOptions options = new MyOptions(cmd);
 		//String dir = "E:\\NGS\\Genome_Scan_104269\\umi_cons_bam\\";
 		//String dir = "E:\\NGS_data\\bamfiles\\300bp_uncropped\\";
-		String dir = "E:\\NGS_data\\bamfiles\\";
+		String dir = "C:\\Users\\lejon\\Documents\\bams\\";
 		boolean recursive = true;
 		boolean combineFiles = false;
 		//default == 1 (for now, because duplicate position filter needs to come before anchor filter)

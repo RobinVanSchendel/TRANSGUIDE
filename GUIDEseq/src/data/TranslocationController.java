@@ -22,8 +22,8 @@ public class TranslocationController {
 	public static final int MAXDIST = 5;
 	public static final int MAXANCHORDIST = 2000;
 	private int primerStart, primerEnd;
-	public static final String LB = "GTTTACACCACAATATATCCTGCCA";
-	public static final String RB = "GTTTACCCGCCAATATATCCTGTCA"; //this is the default one
+	public static final List<String> LB = new ArrayList<>(List.of("GTTTACACCACAATATATCCTGCCA", "ATTTACAATTGAATATATCCTGCCG"));
+	public static final List<String> RB = new ArrayList<>(List.of("GTTTACCCGCCAATATATCCTGTCA", "AATTACAACCGCATATATCCTGCCA"));
 	private SamplePrimer sp;
 	private HashMap<String, Translocation> searchRealPositions = new HashMap<String, Translocation>();
 	private boolean debug = false;
@@ -297,6 +297,7 @@ public class TranslocationController {
         	// don't take any reads that are duplicates
         	// take the read containing the T-DNA primer
         	if (!srec.isSecondaryAlignment() &&
+        			!srec.getSupplementaryAlignmentFlag() &&
     			srec.getFirstOfPairFlag() == sp.isFirstOfPairFlag() &&
     			!isDuplicate(srec) &&
     			srec.hasAttribute("SA")){
@@ -629,33 +630,45 @@ public class TranslocationController {
 	    //System.out.println(rs==null);
 	    //should give the position of the first occurrence of LB in TDNA which is indexLB
 	    String TDNA = rs.getBaseString().toUpperCase();
-	    int indexLB = TDNA.indexOf(LB);
+	    
 	    // here LB and RB are declared to be forward
 	    boolean LBisForward = true;
 	    boolean RBisForward = true;
+	    int indexLB = -1;
+	    int indexRB = -1;		
+	    		
+	    for (String lb: LB) {
+	    indexLB = TDNA.indexOf(lb);
 	    //if LB never occurs, reverse complement. If LB does occur, shift position by 4 because of the nick, and declare LB reverse
 	    if(indexLB == -1) {
-	    	indexLB = TDNA.indexOf(Utils.reverseComplement(LB));
+	    	indexLB = TDNA.indexOf(Utils.reverseComplement(lb));
 	    	if(indexLB>=0) {
 	    		indexLB+=4;
+	    		break;
 	    	}
 	    	LBisForward = false;
 	    }
 	    //if the LB can be found, it should be forward. The index should then be shifted by 22.
 	    else {
 	    	indexLB +=22;
+	    	break;
+	    }
 	    }
 	    //same for RB, but +3 or +23
-	    int indexRB = TDNA.indexOf(RB);
+	    for (String rb: RB) {
+	    indexRB = TDNA.indexOf(rb);
 	    if(indexRB == -1) {
-	    	indexRB = TDNA.indexOf(Utils.reverseComplement(RB));
+	    	indexRB = TDNA.indexOf(Utils.reverseComplement(rb));
 	    	if(indexRB>=0) {
 	    		indexRB+=3;
+	    		break;
 	    	}
 	    	RBisForward = false;
 	    }
 	    else {
 	    	indexRB +=23;
+	    	break;
+	    }
 	    }
 	    //if neither borders are found, give an error, show which is wrong, and stop the program
 	    if(indexLB == -1 || indexRB == -1) {
